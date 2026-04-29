@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sketch 001: Navigation & Layout</title>
+    <link rel="stylesheet" href="../themes/default.css">
+    <style>
+        /* Variant A: Sidebar Styles */
+        .layout-a { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+        .sidebar { background: #1e293b; color: white; padding: 1.5rem; }
+        .sidebar nav ul { list-style: none; padding: 0; }
+        .sidebar nav li { padding: 0.75rem 0; border-bottom: 1px solid #334155; }
+        .main-content { padding: 2rem; background: #f8fafc; }
+
+        /* Variant B: Top Nav Styles */
+        .layout-b { display: flex; flex-direction: column; min-height: 100vh; }
+        .topnav { background: white; border-bottom: 1px solid var(--border-color); padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+        .topnav nav ul { display: flex; gap: 2rem; list-style: none; margin: 0; padding: 0; }
+        .content-b { padding: 2rem; flex: 1; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="tabs">
+            <div class="tab active" onclick="switchVariant('A')">Variante A: Sidebar (Clássico)</div>
+            <div class="tab" onclick="switchVariant('B')">Variante B: Top Nav (Moderno/Mobile)</div>
+        </div>
+
+        <!-- Variant A -->
+        <div id="variant-a" class="layout-a">
+            <div class="sidebar">
+                <h2>CRM Eclésia</h2>
+                <nav>
+                    <ul>
+                        <li>🏠 Dashboard</li>
+                        <li>👤 Novos Visitantes</li>
+                        <li>📅 Aniversariantes</li>
+                        <li>⚙️ Configurações</li>
+                    </ul>
+                </nav>
+            </div>
+            <div class="main-content">
+                <h1>Dashboard Pastoral</h1>
+                <div class="card">
+                    <h3>Bem-vindo, Pastor!</h3>
+                    <p>Esta é a estrutura com barra lateral, ideal para telas maiores e gestão detalhada.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Variant B -->
+        <div id="variant-b" class="layout-b hidden">
+            <header class="topnav">
+                <div class="logo"><strong>CRM Eclésia</strong></div>
+                <nav>
+                    <ul>
+                        <li>Dashboard</li>
+                        <li>Visitantes</li>
+                        <li>Config</li>
+                    </ul>
+                </nav>
+                <button>Sair</button>
+            </header>
+            <div class="content-b">
+                <h1>Dashboard Pastoral</h1>
+                <div class="card">
+                    <h3>Foco no Conteúdo</h3>
+                    <p>Esta estrutura usa todo o espaço horizontal. É excelente para dispositivos móveis e tablets.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="sketch-toolbar">
+        Sketch 001 | <a href="../MANIFEST.md">Manifest</a>
+    </div>
+
+    <script>
+        function switchVariant(v) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.layout-a, .layout-b').forEach(l => l.classList.add('hidden'));
+            
+            if (v === 'A') {
+                document.querySelector('.tab:nth-child(1)').classList.add('active');
+                document.getElementById('variant-a').classList.remove('hidden');
+            } else {
+                document.querySelector('.tab:nth-child(2)').classList.add('active');
+                document.getElementById('variant-b').classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>

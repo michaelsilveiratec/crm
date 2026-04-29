@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sketch 002: Data Entry & Display</title>
+    <link rel="stylesheet" href="../themes/default.css">
+    <style>
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+        .member-card { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid var(--border-color); }
+        .member-info h4 { margin: 0; }
+        .member-info p { margin: 0; font-size: 0.875rem; color: #64748b; }
+        .action-btns { display: flex; gap: 0.5rem; }
+        .badge { background: #e0f2fe; color: #0369a1; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+        .hidden { display: none !important; }
+        .whatsapp-btn { background: #25d366 !important; }
+        .whatsapp-btn:hover { background: #128c7e !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="tabs">
+            <div class="tab active" onclick="switchVariant('A')">Variante A: Cadastro (Obreiro)</div>
+            <div class="tab" onclick="switchVariant('B')">Variante B: Gestão (Pastor)</div>
+        </div>
+
+        <!-- Variant A: Obreiro Form -->
+        <div id="variant-a" class="content-a">
+            <h1>Novo Cadastro de Visitante</h1>
+            <div class="card">
+                <form onsubmit="return false;">
+                    <div class="grid">
+                        <div class="input-group">
+                            <label>Nome Completo</label>
+                            <input type="text" placeholder="Ex: João Silva">
+                        </div>
+                        <div class="input-group">
+                            <label>WhatsApp / Telefone</label>
+                            <input type="text" placeholder="(11) 99999-9999">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Endereço</label>
+                        <input type="text" placeholder="Rua, Número, Bairro">
+                    </div>
+                    <div class="grid">
+                        <div class="input-group">
+                            <label>Data de Nascimento</label>
+                            <input type="date">
+                        </div>
+                        <div class="input-group">
+                            <label>Estado Civil</label>
+                            <select>
+                                <option>Solteiro(a)</option>
+                                <option>Casado(a)</option>
+                                <option>Divorciado(a)</option>
+                                <option>Viúvo(a)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Pedido de Oração / Observações</label>
+                        <textarea rows="3" placeholder="Como podemos orar por você?"></textarea>
+                    </div>
+                    <button style="width: 100%; padding: 1rem;">Finalizar Cadastro</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Variant B: Pastor Dashboard -->
+        <div id="variant-b" class="content-b hidden">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h1>Visitantes Recentes</h1>
+                <div class="badge">5 novos esta semana</div>
+            </div>
+            
+            <div class="card" style="padding: 0;">
+                <div class="member-card">
+                    <div class="member-info">
+                        <h4>Maria Oliveira <span class="badge">Aniversário Hoje! 🎂</span></h4>
+                        <p>Atendido por: Obreiro Marcos • Há 2 horas</p>
+                    </div>
+                    <div class="action-btns">
+                        <button class="whatsapp-btn">Parabéns</button>
+                        <button>Detalhes</button>
+                    </div>
+                </div>
+                <div class="member-card">
+                    <div class="member-info">
+                        <h4>Ricardo Santos</h4>
+                        <p>Atendido por: Obreira Ana • Ontem</p>
+                    </div>
+                    <div class="action-btns">
+                        <button class="whatsapp-btn">Boas-vindas</button>
+                        <button>Detalhes</button>
+                    </div>
+                </div>
+                <div class="member-card">
+                    <div class="member-info">
+                        <h4>Ana Paula Souza</h4>
+                        <p>Atendido por: Obreiro Marcos • Há 3 dias</p>
+                    </div>
+                    <div class="action-btns">
+                        <button class="whatsapp-btn">Boas-vindas</button>
+                        <button>Detalhes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="sketch-toolbar">
+        Sketch 002 | <a href="../MANIFEST.md">Manifest</a>
+    </div>
+
+    <script>
+        function switchVariant(v) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.content-a, .content-b').forEach(l => l.classList.add('hidden'));
+            
+            if (v === 'A') {
+                document.querySelector('.tab:nth-child(1)').classList.add('active');
+                document.getElementById('variant-a').classList.remove('hidden');
+            } else {
+                document.querySelector('.tab:nth-child(2)').classList.add('active');
+                document.getElementById('variant-b').classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>

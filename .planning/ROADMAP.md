@@ -91,9 +91,9 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/2 | Not started | - |
-| 2. Auth & Roles | 0/2 | Not started | - |
-| 3. Member Intake | 0/2 | Not started | - |
+| 1. Foundation | 1/1 | Complete | 2026-04-29 |
+| 2. Auth & Roles | 1/1 | Complete | 2026-04-29 |
+| 3. Member Intake | 1/1 | Complete | 2026-04-29 |
 | 4. Pastoral Dashboard | 0/2 | Not started | - |
 | 5. Messaging & Alerts | 0/1 | Not started | - |
 | 6. Advanced Permissions | 0/1 | Not started | - |

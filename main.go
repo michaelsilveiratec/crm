@@ -17,17 +17,19 @@ import (
 func main() {
 	// Carrega variáveis de ambiente do arquivo .env
 	if err := godotenv.Load(); err != nil {
-		log.Println("Aviso: Arquivo .env não encontrado. Usando variáveis de ambiente do sistema.")
+		log.Println("Aviso: arquivo .env não encontrado. Usando variáveis de ambiente do sistema.")
 	}
 
 	// Inicializa o banco de dados PostgreSQL
-	db.InitDB()
+	if err := db.InitDB(); err != nil {
+		log.Fatal("Erro crítico ao iniciar o banco de dados: ", err)
+	}
 
 	r := gin.Default()
 
 	// Segurança Global
 	r.Use(auth.SecurityHeaders())
-	r.Use(auth.RateLimiter(100, time.Minute)) // 100 requisições por minuto por IP
+	r.Use(auth.RateLimiter(100, time.Minute))
 
 	// Corrige aviso de trusted proxies
 	if err := r.SetTrustedProxies(nil); err != nil {
@@ -42,6 +44,7 @@ func main() {
 			c.JSON(http.StatusOK, gin.H{
 				"status":      "ok",
 				"environment": os.Getenv("APP_ENV"),
+				"database":    "connected",
 			})
 		})
 
@@ -56,8 +59,6 @@ func main() {
 		authGroup.Use(auth.SubscriptionRequired())
 		{
 			authGroup.GET("/me", api.MeHandler)
-
-			// Cadastro geral de membros/visitantes
 			authGroup.POST("/members", api.CreateMemberHandler)
 		}
 
@@ -85,7 +86,6 @@ func main() {
 			pastorGroup.GET("/whatsapp/logs", api.GetWhatsAppLogsHandler)
 
 			// CRUD completo de usuários/obreiros
-			// Somente Pastor Administrador acessa estas rotas
 			pastorGroup.GET("/users", api.GetTeamUsersCRUDHandler)
 			pastorGroup.POST("/users", api.CreateTeamUserCRUDHandler)
 			pastorGroup.PUT("/users/:id", api.UpdateTeamUserCRUDHandler)
@@ -107,7 +107,6 @@ func main() {
 		}
 
 		// Rotas compartilhadas pela equipe
-		// Pastor e Obreiro podem acessar
 		teamGroup := apiGroup.Group("/team")
 		teamGroup.Use(auth.AuthRequired())
 		teamGroup.Use(auth.SubscriptionRequired())
@@ -117,7 +116,6 @@ func main() {
 		}
 
 		// Rotas exclusivas para Obreiro
-		// Obreiro NÃO tem CRUD de usuários
 		workerGroup := apiGroup.Group("/worker")
 		workerGroup.Use(auth.AuthRequired())
 		workerGroup.Use(auth.SubscriptionRequired())
@@ -144,7 +142,7 @@ func main() {
 	// Serve os arquivos estáticos do frontend
 	assetsFS, err := fs.Sub(UI, "ui/dist/assets")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Erro ao carregar assets do frontend. Verifique se ui/dist/assets existe: ", err)
 	}
 
 	r.StaticFS("/assets", http.FS(assetsFS))
@@ -152,7 +150,7 @@ func main() {
 	indexHandler := func(c *gin.Context) {
 		indexFile, err := UI.ReadFile("ui/dist/index.html")
 		if err != nil {
-			c.String(http.StatusNotFound, "index.html não encontrado")
+			c.String(http.StatusNotFound, "index.html não encontrado. Rode npm run build dentro da pasta ui antes do deploy.")
 			return
 		}
 
@@ -162,12 +160,13 @@ func main() {
 	r.GET("/", indexHandler)
 	r.NoRoute(indexHandler)
 
+	// Porta correta para Vercel e ambiente local
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8888"
 	}
 
-	log.Printf("Servidor SaaS iniciado em http://localhost:%s\n", port)
+	log.Printf("Servidor SaaS iniciado na porta %s\n", port)
 
 	if err := r.Run(":" + port); err != nil {
 		log.Fatal("Erro ao iniciar o servidor: ", err)

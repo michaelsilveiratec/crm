@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 
@@ -11,25 +12,25 @@ import (
 
 var DB *sql.DB
 
-func InitDB() {
+func InitDB() error {
 	var err error
+
 	dbUrl := os.Getenv("DATABASE_URL")
 	if dbUrl == "" {
-		log.Fatal("DATABASE_URL não configurada no .env")
+		return fmt.Errorf("DATABASE_URL não configurada. Cadastre essa variável na Vercel")
 	}
 
 	DB, err = sql.Open("postgres", dbUrl)
 	if err != nil {
-		log.Fatal("Erro ao abrir o banco de dados: ", err)
+		return fmt.Errorf("erro ao abrir o banco de dados: %w", err)
 	}
 
 	if err = DB.Ping(); err != nil {
-		log.Fatal("Erro ao conectar ao banco de dados PostgreSQL. O Docker está rodando? Erro: ", err)
+		return fmt.Errorf("erro ao conectar ao PostgreSQL. Verifique DATABASE_URL, SSL e se o banco está online: %w", err)
 	}
 
 	log.Println("Conectado ao PostgreSQL com sucesso!")
 
-	// Criação das tabelas para arquitetura SaaS Multi-Tenant
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS churches (
 			id SERIAL PRIMARY KEY,
@@ -43,6 +44,7 @@ func InitDB() {
 			status VARCHAR(50) DEFAULT 'active',
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);`,
+
 		`CREATE TABLE IF NOT EXISTS subscriptions (
 			id SERIAL PRIMARY KEY,
 			church_id INTEGER REFERENCES churches(id) ON DELETE CASCADE,
@@ -54,6 +56,7 @@ func InitDB() {
 			transaction_id VARCHAR(255),
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);`,
+
 		`CREATE TABLE IF NOT EXISTS users (
 			id SERIAL PRIMARY KEY,
 			church_id INTEGER REFERENCES churches(id) ON DELETE CASCADE,
@@ -67,30 +70,36 @@ func InitDB() {
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			UNIQUE(church_id, username)
 		);`,
+
 		`CREATE TABLE IF NOT EXISTS system_logs (
 			id SERIAL PRIMARY KEY,
 			church_id INTEGER REFERENCES churches(id) ON DELETE CASCADE,
 			message TEXT,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);`,
+
 		`CREATE TABLE IF NOT EXISTS members (
 			id SERIAL PRIMARY KEY,
 			church_id INTEGER REFERENCES churches(id) ON DELETE CASCADE,
 			name VARCHAR(255) NOT NULL,
+			email VARCHAR(255),
 			address TEXT,
+			neighborhood VARCHAR(100),
+			city VARCHAR(100),
 			phone VARCHAR(50),
-			whatsapp VARCHAR(50) NOT NULL,
+			whatsapp VARCHAR(50),
 			birth_date VARCHAR(50),
 			marital_status VARCHAR(50),
-			is_visitor BOOLEAN DEFAULT TRUE, -- TRUE = Visitante, FALSE = Membro
-			spiritual_status VARCHAR(100) DEFAULT 'EM_ACOMPANHAMENTO', -- CONVERTIDO, BATIZADO, MEMBRO_ATIVO, DISCIPULADO
+			is_visitor BOOLEAN DEFAULT TRUE,
+			spiritual_status VARCHAR(100) DEFAULT 'EM_ACOMPANHAMENTO',
 			last_contact_date TIMESTAMP,
 			follow_up_notes TEXT,
 			observations TEXT,
-photo_url TEXT,
-created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-created_by INTEGER REFERENCES users(id)
+			photo_url TEXT,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			created_by INTEGER REFERENCES users(id)
 		);`,
+
 		`CREATE TABLE IF NOT EXISTS pastoral_visits (
 			id SERIAL PRIMARY KEY,
 			church_id INTEGER REFERENCES churches(id) ON DELETE CASCADE,
@@ -102,21 +111,23 @@ created_by INTEGER REFERENCES users(id)
 			conducted_by VARCHAR(255),
 			notes TEXT,
 			result TEXT,
-			status VARCHAR(50) DEFAULT 'Agendada', -- Agendada, Realizada, Cancelada, Reagendada
+			status VARCHAR(50) DEFAULT 'Agendada',
 			carried_holy_communion BOOLEAN DEFAULT FALSE,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);`,
+
 		`CREATE TABLE IF NOT EXISTS worker_messages (
 			id SERIAL PRIMARY KEY,
 			church_id INTEGER REFERENCES churches(id) ON DELETE CASCADE,
 			sender_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-			recipient_id INTEGER, -- Removida a FK obrigatória para permitir 0 (Geral)
+			recipient_id INTEGER,
 			subject VARCHAR(255),
 			message TEXT,
-			msg_type VARCHAR(50), -- AJUDA, URGENTE, VISITA, ORACAO, ENFERMIDADE
+			msg_type VARCHAR(50),
 			is_read BOOLEAN DEFAULT FALSE,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);`,
+
 		`CREATE TABLE IF NOT EXISTS pastoral_messages (
 			id SERIAL PRIMARY KEY,
 			church_id INTEGER REFERENCES churches(id) ON DELETE CASCADE,
@@ -128,6 +139,7 @@ created_by INTEGER REFERENCES users(id)
 			criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);`,
+
 		`CREATE TABLE IF NOT EXISTS message_sends (
 			id SERIAL PRIMARY KEY,
 			church_id INTEGER REFERENCES churches(id) ON DELETE CASCADE,
@@ -139,6 +151,7 @@ created_by INTEGER REFERENCES users(id)
 			enviado_por INTEGER REFERENCES users(id),
 			enviado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);`,
+
 		`CREATE TABLE IF NOT EXISTS activity_logs (
 			id SERIAL PRIMARY KEY,
 			church_id INTEGER REFERENCES churches(id) ON DELETE CASCADE,
@@ -147,6 +160,7 @@ created_by INTEGER REFERENCES users(id)
 			details TEXT,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);`,
+
 		`CREATE TABLE IF NOT EXISTS whatsapp_logs (
 			id SERIAL PRIMARY KEY,
 			church_id INTEGER REFERENCES churches(id) ON DELETE CASCADE,
@@ -157,6 +171,7 @@ created_by INTEGER REFERENCES users(id)
 			error_msg TEXT,
 			sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);`,
+
 		`CREATE TABLE IF NOT EXISTS audit_logs (
 			id SERIAL PRIMARY KEY,
 			church_id INTEGER REFERENCES churches(id) ON DELETE CASCADE,
@@ -168,77 +183,123 @@ created_by INTEGER REFERENCES users(id)
 	}
 
 	for _, q := range queries {
-		_, err = DB.Exec(q)
-		if err != nil {
-			log.Fatal("Erro ao criar tabelas: ", err)
+		if _, err = DB.Exec(q); err != nil {
+			return fmt.Errorf("erro ao criar tabelas: %w", err)
 		}
 	}
 
-	// Forçar a remoção da constraint que está causando o erro 500
-	DB.Exec("ALTER TABLE worker_messages DROP CONSTRAINT IF EXISTS worker_messages_recipient_id_fkey")
+	migrations := []string{
+		`ALTER TABLE worker_messages DROP CONSTRAINT IF EXISTS worker_messages_recipient_id_fkey`,
 
-	// Adicionar colunas novas na tabela de membros (caso não existam)
-	DB.Exec("ALTER TABLE members ADD COLUMN IF NOT EXISTS email VARCHAR(255)")
-	DB.Exec("ALTER TABLE members ADD COLUMN IF NOT EXISTS neighborhood VARCHAR(100)")
-	DB.Exec("ALTER TABLE members ADD COLUMN IF NOT EXISTS city VARCHAR(100)")
-	DB.Exec("ALTER TABLE members ADD COLUMN IF NOT EXISTS is_visitor BOOLEAN DEFAULT TRUE")
-	DB.Exec("ALTER TABLE members ADD COLUMN IF NOT EXISTS spiritual_status VARCHAR(100) DEFAULT 'NOVO'")
-	DB.Exec("ALTER TABLE members ADD COLUMN IF NOT EXISTS last_contact_date TIMESTAMP")
-	DB.Exec("ALTER TABLE members ADD COLUMN IF NOT EXISTS follow_up_notes TEXT")
-	DB.Exec("ALTER TABLE members ADD COLUMN IF NOT EXISTS photo_url TEXT")
+		`ALTER TABLE members ADD COLUMN IF NOT EXISTS email VARCHAR(255)`,
+		`ALTER TABLE members ADD COLUMN IF NOT EXISTS neighborhood VARCHAR(100)`,
+		`ALTER TABLE members ADD COLUMN IF NOT EXISTS city VARCHAR(100)`,
+		`ALTER TABLE members ADD COLUMN IF NOT EXISTS is_visitor BOOLEAN DEFAULT TRUE`,
+		`ALTER TABLE members ADD COLUMN IF NOT EXISTS spiritual_status VARCHAR(100) DEFAULT 'NOVO'`,
+		`ALTER TABLE members ADD COLUMN IF NOT EXISTS last_contact_date TIMESTAMP`,
+		`ALTER TABLE members ADD COLUMN IF NOT EXISTS follow_up_notes TEXT`,
+		`ALTER TABLE members ADD COLUMN IF NOT EXISTS photo_url TEXT`,
 
-	// Migrações para Mensagens Pastorais
-	DB.Exec("ALTER TABLE pastoral_messages ADD COLUMN IF NOT EXISTS criado_por INTEGER")
-	DB.Exec("ALTER TABLE pastoral_messages ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-	DB.Exec("ALTER TABLE pastoral_messages ADD COLUMN IF NOT EXISTS atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+		`ALTER TABLE pastoral_messages ADD COLUMN IF NOT EXISTS criado_por INTEGER`,
+		`ALTER TABLE pastoral_messages ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP`,
+		`ALTER TABLE pastoral_messages ADD COLUMN IF NOT EXISTS atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP`,
 
-	DB.Exec("ALTER TABLE message_sends ADD COLUMN IF NOT EXISTS enviado_por INTEGER")
-	DB.Exec("ALTER TABLE message_sends ADD COLUMN IF NOT EXISTS enviado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+		`ALTER TABLE message_sends ADD COLUMN IF NOT EXISTS enviado_por INTEGER`,
+		`ALTER TABLE message_sends ADD COLUMN IF NOT EXISTS enviado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP`,
 
-	// Migrações para Usuários
-	DB.Exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255)")
-	DB.Exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50)")
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255)`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50)`,
+	}
 
-	seedSuperAdminAndFirstChurch()
+	for _, migration := range migrations {
+		if _, err = DB.Exec(migration); err != nil {
+			return fmt.Errorf("erro ao executar migração: %w", err)
+		}
+	}
+
+	if err := seedSuperAdminAndFirstChurch(); err != nil {
+		return fmt.Errorf("erro no setup inicial: %w", err)
+	}
+
+	return nil
 }
 
-func seedSuperAdminAndFirstChurch() {
+func seedSuperAdminAndFirstChurch() error {
 	var count int
+
 	err := DB.QueryRow("SELECT COUNT(*) FROM churches").Scan(&count)
 	if err != nil {
-		log.Println("Erro ao verificar igrejas: ", err)
-		return
+		return fmt.Errorf("erro ao verificar igrejas: %w", err)
 	}
 
-	// Criar a primeira igreja e super admin
-	if count == 0 {
-		var churchID int
-		err = DB.QueryRow(`INSERT INTO churches (name, slug, plan, status) VALUES ($1, $2, $3, $4) RETURNING id`,
-			"Bom Samaritano Matriz", "bom-samaritano-matriz", "enterprise", "active").Scan(&churchID)
-
-		if err != nil {
-			log.Println("Erro ao criar igreja inicial: ", err)
-			return
-		}
-
-		// Subscription da igreja 1
-		DB.Exec(`INSERT INTO subscriptions (church_id, plan, status) VALUES ($1, $2, $3)`, churchID, "enterprise", "active")
-
-		// Super Admin
-		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
-		_, err = DB.Exec("INSERT INTO users (church_id, name, username, password_hash, role) VALUES ($1, $2, $3, $4, $5)",
-			churchID, "Super Administrador", "superadmin", string(hashedPassword), "super_admin")
-
-		// Pastor da igreja 1
-		_, err = DB.Exec("INSERT INTO users (church_id, name, username, password_hash, role) VALUES ($1, $2, $3, $4, $5)",
-			churchID, "Pastor Bom Samaritano", "pastor", string(hashedPassword), "pastor")
-
-		if err != nil {
-			log.Println("Erro ao criar usuários iniciais: ", err)
-		} else {
-			log.Println("Setup inicial concluído: Igreja 1, SuperAdmin e Pastor criados.")
-		}
+	if count > 0 {
+		return nil
 	}
+
+	var churchID int
+
+	err = DB.QueryRow(
+		`INSERT INTO churches (name, slug, plan, status) 
+		 VALUES ($1, $2, $3, $4) 
+		 RETURNING id`,
+		"Bom Samaritano Matriz",
+		"bom-samaritano-matriz",
+		"enterprise",
+		"active",
+	).Scan(&churchID)
+
+	if err != nil {
+		return fmt.Errorf("erro ao criar igreja inicial: %w", err)
+	}
+
+	_, err = DB.Exec(
+		`INSERT INTO subscriptions (church_id, plan, status) 
+		 VALUES ($1, $2, $3)`,
+		churchID,
+		"enterprise",
+		"active",
+	)
+
+	if err != nil {
+		return fmt.Errorf("erro ao criar assinatura inicial: %w", err)
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("erro ao gerar senha inicial: %w", err)
+	}
+
+	_, err = DB.Exec(
+		`INSERT INTO users (church_id, name, username, password_hash, role) 
+		 VALUES ($1, $2, $3, $4, $5)`,
+		churchID,
+		"Super Administrador",
+		"superadmin",
+		string(hashedPassword),
+		"super_admin",
+	)
+
+	if err != nil {
+		return fmt.Errorf("erro ao criar super admin: %w", err)
+	}
+
+	_, err = DB.Exec(
+		`INSERT INTO users (church_id, name, username, password_hash, role) 
+		 VALUES ($1, $2, $3, $4, $5)`,
+		churchID,
+		"Pastor Bom Samaritano",
+		"pastor",
+		string(hashedPassword),
+		"pastor",
+	)
+
+	if err != nil {
+		return fmt.Errorf("erro ao criar pastor inicial: %w", err)
+	}
+
+	log.Println("Setup inicial concluído: Igreja 1, SuperAdmin e Pastor criados.")
+
+	return nil
 }
 
 type User struct {
@@ -315,6 +376,25 @@ type PastoralMessage struct {
 	AtualizadoEm string `json:"atualizado_em"`
 }
 
+type MessageSend struct {
+	ID            int    `json:"id"`
+	MessageTitle  string `json:"message_title"`
+	MemberName    string `json:"member_name"`
+	Telefone      string `json:"telefone"`
+	MensagemFinal string `json:"mensagem_final"`
+	Status        string `json:"status"`
+	EnviadoPor    string `json:"enviado_por"`
+	EnviadoEm     string `json:"enviado_em"`
+}
+
+type ActivityItem struct {
+	ID        int    `json:"id"`
+	UserName  string `json:"user_name"`
+	Action    string `json:"action"`
+	Details   string `json:"details"`
+	CreatedAt string `json:"created_at"`
+}
+
 func CreateMember(m *Member) error {
 	toNull := func(s string) interface{} {
 		if s == "" {
@@ -388,7 +468,7 @@ func GetAllMembers(churchID int) ([]Member, error) {
 				COALESCE(follow_up_notes, ''), 
 				COALESCE(observations, ''), 
 				COALESCE(photo_url, ''),
-				created_at, 
+				created_at::text, 
 				COALESCE(created_by, 0)
 			  FROM members 
 			  WHERE church_id = $1 
@@ -434,31 +514,97 @@ func GetAllMembers(churchID int) ([]Member, error) {
 		members = append(members, m)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return members, nil
 }
 
 func GetUserByUsername(username string) (*User, error) {
 	user := &User{}
-	query := "SELECT id, church_id, name, username, password_hash, role, provisional_access FROM users WHERE username = $1"
-	err := DB.QueryRow(query, username).Scan(&user.ID, &user.ChurchID, &user.Name, &user.Username, &user.PasswordHash, &user.Role, &user.ProvisionalAccess)
+
+	query := `SELECT 
+				id, 
+				church_id, 
+				name, 
+				username, 
+				COALESCE(email, ''), 
+				COALESCE(phone, ''), 
+				password_hash, 
+				role, 
+				provisional_access 
+			  FROM users 
+			  WHERE username = $1`
+
+	err := DB.QueryRow(query, username).Scan(
+		&user.ID,
+		&user.ChurchID,
+		&user.Name,
+		&user.Username,
+		&user.Email,
+		&user.Phone,
+		&user.PasswordHash,
+		&user.Role,
+		&user.ProvisionalAccess,
+	)
+
 	if err != nil {
 		return nil, err
 	}
+
 	return user, nil
 }
 
 func GetUserByID(id int) (*User, error) {
 	user := &User{}
-	query := "SELECT id, church_id, name, username, password_hash, role, provisional_access FROM users WHERE id = $1"
-	err := DB.QueryRow(query, id).Scan(&user.ID, &user.ChurchID, &user.Name, &user.Username, &user.PasswordHash, &user.Role, &user.ProvisionalAccess)
+
+	query := `SELECT 
+				id, 
+				church_id, 
+				name, 
+				username, 
+				COALESCE(email, ''), 
+				COALESCE(phone, ''), 
+				password_hash, 
+				role, 
+				provisional_access 
+			  FROM users 
+			  WHERE id = $1`
+
+	err := DB.QueryRow(query, id).Scan(
+		&user.ID,
+		&user.ChurchID,
+		&user.Name,
+		&user.Username,
+		&user.Email,
+		&user.Phone,
+		&user.PasswordHash,
+		&user.Role,
+		&user.ProvisionalAccess,
+	)
+
 	if err != nil {
 		return nil, err
 	}
+
 	return user, nil
 }
 
 func GetAllUsers(churchID int) ([]User, error) {
-	query := "SELECT id, church_id, name, username, role, provisional_access FROM users WHERE church_id = $1 ORDER BY name ASC"
+	query := `SELECT 
+				id, 
+				church_id, 
+				name, 
+				username,
+				COALESCE(email, ''),
+				COALESCE(phone, ''),
+				role, 
+				provisional_access 
+			  FROM users 
+			  WHERE church_id = $1 
+			  ORDER BY name ASC`
+
 	rows, err := DB.Query(query, churchID)
 	if err != nil {
 		return nil, err
@@ -466,22 +612,44 @@ func GetAllUsers(churchID int) ([]User, error) {
 	defer rows.Close()
 
 	var users []User
+
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.ChurchID, &u.Name, &u.Username, &u.Role, &u.ProvisionalAccess); err != nil {
+
+		if err := rows.Scan(
+			&u.ID,
+			&u.ChurchID,
+			&u.Name,
+			&u.Username,
+			&u.Email,
+			&u.Phone,
+			&u.Role,
+			&u.ProvisionalAccess,
+		); err != nil {
 			return nil, err
 		}
+
 		users = append(users, u)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return users, nil
 }
 
 func UpdateProvisionalAccess(userID int, churchID int, grant bool) error {
-	_, err := DB.Exec("UPDATE users SET provisional_access = $1 WHERE id = $2 AND church_id = $3", grant, userID, churchID)
+	_, err := DB.Exec(
+		"UPDATE users SET provisional_access = $1 WHERE id = $2 AND church_id = $3",
+		grant,
+		userID,
+		churchID,
+	)
+
 	return err
 }
 
-// VISITAS PASTORAIS
 func CreateVisit(v *PastoralVisit) error {
 	toNull := func(s string) interface{} {
 		if s == "" {
@@ -490,10 +658,23 @@ func CreateVisit(v *PastoralVisit) error {
 		return s
 	}
 
-	query := `INSERT INTO pastoral_visits (church_id, member_id, address, visit_date, visit_time, conducted_by, notes, status, carried_holy_communion, responsible_id)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`
+	query := `INSERT INTO pastoral_visits (
+				church_id, 
+				member_id, 
+				address, 
+				visit_date, 
+				visit_time, 
+				conducted_by, 
+				notes, 
+				status, 
+				carried_holy_communion, 
+				responsible_id
+			  )
+			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+			  RETURNING id`
 
-	return DB.QueryRow(query,
+	return DB.QueryRow(
+		query,
 		v.ChurchID,
 		v.MemberID,
 		toNull(v.Address),
@@ -503,24 +684,30 @@ func CreateVisit(v *PastoralVisit) error {
 		toNull(v.Notes),
 		v.Status,
 		v.CarriedHolyCommunion,
-		v.ResponsibleID).Scan(&v.ID)
+		v.ResponsibleID,
+	).Scan(&v.ID)
 }
 
 func GetAllVisits(churchID int) ([]PastoralVisit, error) {
-	// m.name vem do JOIN com a tabela members
-	query := `SELECT v.id, v.church_id, v.member_id, m.name, 
+	query := `SELECT 
+				v.id, 
+				v.church_id, 
+				v.member_id, 
 				COALESCE(v.address, ''), 
-				v.visit_date, 
+				v.visit_date::text, 
 				COALESCE(v.visit_time::text, ''), 
+				COALESCE(v.responsible_id, 0),
 				COALESCE(v.conducted_by, ''), 
 				COALESCE(v.notes, ''), 
 				COALESCE(v.result, ''), 
 				v.status, 
 				v.carried_holy_communion, 
-				v.created_at
+				v.created_at::text
 			  FROM pastoral_visits v
 			  JOIN members m ON v.member_id = m.id
-			  WHERE v.church_id = $1 ORDER BY v.visit_date DESC`
+			  WHERE v.church_id = $1 
+			  ORDER BY v.visit_date DESC`
+
 	rows, err := DB.Query(query, churchID)
 	if err != nil {
 		return nil, err
@@ -528,37 +715,79 @@ func GetAllVisits(churchID int) ([]PastoralVisit, error) {
 	defer rows.Close()
 
 	var visits []PastoralVisit
+
 	for rows.Next() {
 		var v PastoralVisit
-		var memberName string
-		err := rows.Scan(&v.ID, &v.ChurchID, &v.MemberID, &memberName, &v.Address, &v.VisitDate, &v.VisitTime, &v.ConductedBy, &v.Notes, &v.Result, &v.Status, &v.CarriedHolyCommunion, &v.CreatedAt)
+
+		err := rows.Scan(
+			&v.ID,
+			&v.ChurchID,
+			&v.MemberID,
+			&v.Address,
+			&v.VisitDate,
+			&v.VisitTime,
+			&v.ResponsibleID,
+			&v.ConductedBy,
+			&v.Notes,
+			&v.Result,
+			&v.Status,
+			&v.CarriedHolyCommunion,
+			&v.CreatedAt,
+		)
+
 		if err != nil {
 			return nil, err
 		}
-		// Podemos adicionar um campo virtual para o nome do membro se necessário
+
 		visits = append(visits, v)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return visits, nil
 }
 
-// RECADOS DO OBREIRO
 func CreateWorkerMessage(m *WorkerMessage) error {
-	query := `INSERT INTO worker_messages (church_id, sender_id, recipient_id, subject, message, msg_type)
-	VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`
-	return DB.QueryRow(query, m.ChurchID, m.SenderID, m.RecipientID, m.Subject, m.Message, m.MsgType).Scan(&m.ID)
+	query := `INSERT INTO worker_messages (
+				church_id, 
+				sender_id, 
+				recipient_id, 
+				subject, 
+				message, 
+				msg_type
+			  )
+			  VALUES ($1, $2, $3, $4, $5, $6) 
+			  RETURNING id`
+
+	return DB.QueryRow(
+		query,
+		m.ChurchID,
+		m.SenderID,
+		m.RecipientID,
+		m.Subject,
+		m.Message,
+		m.MsgType,
+	).Scan(&m.ID)
 }
 
 func GetAllWorkerMessages(churchID int) ([]WorkerMessage, error) {
-	query := `SELECT m.id, m.church_id, m.sender_id, u.name as sender_name, 
+	query := `SELECT 
+				m.id, 
+				m.church_id, 
+				m.sender_id, 
 				COALESCE(m.recipient_id, 0), 
 				COALESCE(m.subject, ''), 
 				COALESCE(m.message, ''), 
 				COALESCE(m.msg_type, ''), 
 				m.is_read, 
-				m.created_at
+				m.created_at::text
 			  FROM worker_messages m
 			  JOIN users u ON m.sender_id = u.id
-			  WHERE m.church_id = $1 ORDER BY m.created_at DESC`
+			  WHERE m.church_id = $1 
+			  ORDER BY m.created_at DESC`
+
 	rows, err := DB.Query(query, churchID)
 	if err != nil {
 		return nil, err
@@ -566,29 +795,74 @@ func GetAllWorkerMessages(churchID int) ([]WorkerMessage, error) {
 	defer rows.Close()
 
 	var messages []WorkerMessage
+
 	for rows.Next() {
 		var m WorkerMessage
-		var senderName string
-		err := rows.Scan(&m.ID, &m.ChurchID, &m.SenderID, &senderName, &m.RecipientID, &m.Subject, &m.Message, &m.MsgType, &m.IsRead, &m.CreatedAt)
+
+		err := rows.Scan(
+			&m.ID,
+			&m.ChurchID,
+			&m.SenderID,
+			&m.RecipientID,
+			&m.Subject,
+			&m.Message,
+			&m.MsgType,
+			&m.IsRead,
+			&m.CreatedAt,
+		)
+
 		if err != nil {
 			return nil, err
 		}
+
 		messages = append(messages, m)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return messages, nil
 }
 
-// MENSAGENS PASTORAIS (MASSA)
 func CreatePastoralMessage(m *PastoralMessage) error {
-	query := `INSERT INTO pastoral_messages (church_id, categoria, titulo, mensagem, status, criado_por)
-	VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`
-	return DB.QueryRow(query, m.ChurchID, m.Categoria, m.Titulo, m.Mensagem, m.Status, m.CriadoPor).Scan(&m.ID)
+	query := `INSERT INTO pastoral_messages (
+				church_id, 
+				categoria, 
+				titulo, 
+				mensagem, 
+				status, 
+				criado_por
+			  )
+			  VALUES ($1, $2, $3, $4, $5, $6) 
+			  RETURNING id`
+
+	return DB.QueryRow(
+		query,
+		m.ChurchID,
+		m.Categoria,
+		m.Titulo,
+		m.Mensagem,
+		m.Status,
+		m.CriadoPor,
+	).Scan(&m.ID)
 }
 
 func GetAllPastoralMessages(churchID int) ([]PastoralMessage, error) {
-	query := `SELECT id, church_id, categoria, titulo, mensagem, status, 
-			  COALESCE(criado_por, 0), COALESCE(criado_em::text, ''), COALESCE(atualizado_em::text, '') 
-			  FROM pastoral_messages WHERE church_id = $1 ORDER BY criado_em DESC`
+	query := `SELECT 
+				id, 
+				church_id, 
+				COALESCE(categoria, ''), 
+				COALESCE(titulo, ''), 
+				COALESCE(mensagem, ''), 
+				COALESCE(status, ''), 
+				COALESCE(criado_por, 0), 
+				COALESCE(criado_em::text, ''), 
+				COALESCE(atualizado_em::text, '') 
+			  FROM pastoral_messages 
+			  WHERE church_id = $1 
+			  ORDER BY criado_em DESC`
+
 	rows, err := DB.Query(query, churchID)
 	if err != nil {
 		return nil, err
@@ -596,57 +870,110 @@ func GetAllPastoralMessages(churchID int) ([]PastoralMessage, error) {
 	defer rows.Close()
 
 	var messages []PastoralMessage
+
 	for rows.Next() {
 		var m PastoralMessage
-		err := rows.Scan(&m.ID, &m.ChurchID, &m.Categoria, &m.Titulo, &m.Mensagem, &m.Status, &m.CriadoPor, &m.CriadoEm, &m.AtualizadoEm)
+
+		err := rows.Scan(
+			&m.ID,
+			&m.ChurchID,
+			&m.Categoria,
+			&m.Titulo,
+			&m.Mensagem,
+			&m.Status,
+			&m.CriadoPor,
+			&m.CriadoEm,
+			&m.AtualizadoEm,
+		)
+
 		if err != nil {
 			return nil, err
 		}
+
 		messages = append(messages, m)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return messages, nil
 }
 
 func UpdatePastoralMessage(m *PastoralMessage) error {
-	query := `UPDATE pastoral_messages SET categoria = $1, titulo = $2, mensagem = $3, status = $4, atualizado_em = CURRENT_TIMESTAMP 
-			  WHERE id = $5 AND church_id = $6`
-	_, err := DB.Exec(query, m.Categoria, m.Titulo, m.Mensagem, m.Status, m.ID, m.ChurchID)
+	query := `UPDATE pastoral_messages 
+			  SET categoria = $1, 
+			      titulo = $2, 
+			      mensagem = $3, 
+			      status = $4, 
+			      atualizado_em = CURRENT_TIMESTAMP 
+			  WHERE id = $5 
+			  AND church_id = $6`
+
+	_, err := DB.Exec(
+		query,
+		m.Categoria,
+		m.Titulo,
+		m.Mensagem,
+		m.Status,
+		m.ID,
+		m.ChurchID,
+	)
+
 	return err
 }
 
 func DeletePastoralMessage(id int, churchID int) error {
-	_, err := DB.Exec("DELETE FROM pastoral_messages WHERE id = $1 AND church_id = $2", id, churchID)
+	_, err := DB.Exec(
+		"DELETE FROM pastoral_messages WHERE id = $1 AND church_id = $2",
+		id,
+		churchID,
+	)
+
 	return err
 }
 
-// HISTÓRICO DE ENVIOS
-type MessageSend struct {
-	ID            int    `json:"id"`
-	MessageTitle  string `json:"message_title"`
-	MemberName    string `json:"member_name"`
-	Telefone      string `json:"telefone"`
-	MensagemFinal string `json:"mensagem_final"`
-	Status        string `json:"status"`
-	EnviadoPor    string `json:"enviado_por"`
-	EnviadoEm     string `json:"enviado_em"`
-}
-
 func SaveMessageSend(s *MessageSend, churchID, messageID, memberID, userID int) error {
-	_, err := DB.Exec(`INSERT INTO message_sends (church_id, message_id, member_id, telefone, mensagem_final, status, enviado_por) 
-					  VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		churchID, messageID, memberID, s.Telefone, s.MensagemFinal, s.Status, userID)
+	_, err := DB.Exec(
+		`INSERT INTO message_sends (
+			church_id, 
+			message_id, 
+			member_id, 
+			telefone, 
+			mensagem_final, 
+			status, 
+			enviado_por
+		) 
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		churchID,
+		messageID,
+		memberID,
+		s.Telefone,
+		s.MensagemFinal,
+		s.Status,
+		userID,
+	)
+
 	return err
 }
 
 func GetMessageHistory(churchID int) ([]MessageSend, error) {
-	query := `SELECT s.id, COALESCE(m.titulo, 'Mensagem Excluída'), COALESCE(mem.name, 'Contato Externo'), 
-				     s.telefone, s.mensagem_final, s.status, COALESCE(u.name, 'Sistema'), s.enviado_em::text
+	query := `SELECT 
+				s.id, 
+				COALESCE(m.titulo, 'Mensagem Excluída'), 
+				COALESCE(mem.name, 'Contato Externo'), 
+				COALESCE(s.telefone, ''),
+				COALESCE(s.mensagem_final, ''),
+				COALESCE(s.status, ''),
+				COALESCE(u.name, 'Sistema'), 
+				s.enviado_em::text
 			  FROM message_sends s
 			  LEFT JOIN pastoral_messages m ON s.message_id = m.id
 			  LEFT JOIN members mem ON s.member_id = mem.id
 			  LEFT JOIN users u ON s.enviado_por = u.id
 			  WHERE s.church_id = $1
-			  ORDER BY s.enviado_em DESC LIMIT 50`
+			  ORDER BY s.enviado_em DESC 
+			  LIMIT 50`
 
 	rows, err := DB.Query(query, churchID)
 	if err != nil {
@@ -655,37 +982,63 @@ func GetMessageHistory(churchID int) ([]MessageSend, error) {
 	defer rows.Close()
 
 	var history []MessageSend
+
 	for rows.Next() {
 		var s MessageSend
-		if err := rows.Scan(&s.ID, &s.MessageTitle, &s.MemberName, &s.Telefone, &s.MensagemFinal, &s.Status, &s.EnviadoPor, &s.EnviadoEm); err != nil {
+
+		if err := rows.Scan(
+			&s.ID,
+			&s.MessageTitle,
+			&s.MemberName,
+			&s.Telefone,
+			&s.MensagemFinal,
+			&s.Status,
+			&s.EnviadoPor,
+			&s.EnviadoEm,
+		); err != nil {
 			return nil, err
 		}
+
 		history = append(history, s)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return history, nil
 }
 
-// LOGS DE ATIVIDADE
 func SaveActivity(churchID, userID int, action, details string) error {
-	_, err := DB.Exec(`INSERT INTO activity_logs (church_id, user_id, action, details) VALUES ($1, $2, $3, $4)`,
-		churchID, userID, action, details)
+	_, err := DB.Exec(
+		`INSERT INTO activity_logs (
+			church_id, 
+			user_id, 
+			action, 
+			details
+		) 
+		VALUES ($1, $2, $3, $4)`,
+		churchID,
+		userID,
+		action,
+		details,
+	)
+
 	return err
 }
 
-type ActivityItem struct {
-	ID        int    `json:"id"`
-	UserName  string `json:"user_name"`
-	Action    string `json:"action"`
-	Details   string `json:"details"`
-	CreatedAt string `json:"created_at"`
-}
-
 func GetRecentActivities(churchID int) ([]ActivityItem, error) {
-	query := `SELECT a.id, u.name, a.action, COALESCE(a.details, ''), a.created_at::text 
+	query := `SELECT 
+				a.id, 
+				u.name, 
+				a.action, 
+				COALESCE(a.details, ''), 
+				a.created_at::text 
 			  FROM activity_logs a
 			  JOIN users u ON a.user_id = u.id
 			  WHERE a.church_id = $1
-			  ORDER BY a.created_at DESC LIMIT 20`
+			  ORDER BY a.created_at DESC 
+			  LIMIT 20`
 
 	rows, err := DB.Query(query, churchID)
 	if err != nil {
@@ -694,12 +1047,26 @@ func GetRecentActivities(churchID int) ([]ActivityItem, error) {
 	defer rows.Close()
 
 	var logs []ActivityItem
+
 	for rows.Next() {
 		var item ActivityItem
-		if err := rows.Scan(&item.ID, &item.UserName, &item.Action, &item.Details, &item.CreatedAt); err != nil {
+
+		if err := rows.Scan(
+			&item.ID,
+			&item.UserName,
+			&item.Action,
+			&item.Details,
+			&item.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
+
 		logs = append(logs, item)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return logs, nil
 }

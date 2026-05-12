@@ -1,4 +1,4 @@
-package crm_eclesia
+package main
 
 import (
 	"embed"

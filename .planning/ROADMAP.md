@@ -13,6 +13,7 @@ O projeto será construído em fases incrementais, começando pela infraestrutur
 - [ ] **Phase 5: Messaging & Alerts** - Integração com WhatsApp e sistema de aniversariantes.
 - [ ] **Phase 6: Advanced Permissions** - Implementação da liberação provisória para Obreiros.
 - [ ] **Phase 7: Final Polish** - Refinamento de UI (Pico.css) e build do binário único.
+- [ ] **Phase 8: Mobile Access** - Acesso e compatibilidade para uso em celulares na mesma rede.
 
 ## Phase Details
 
@@ -87,6 +88,15 @@ Plans:
   2. Binário compilado sem símbolos (-s -w) é menor que 15MB.
 **Plans**: 1 plan
 
+### Phase 8: Mobile Access
+**Goal**: Permitir o uso contínuo do sistema em smartphones através da rede local.
+**Depends on**: Phase 7
+**Requirements**: INFRA-03
+**Success Criteria**:
+  1. Servidor escuta em `0.0.0.0` para aceitar conexões externas da mesma rede.
+  2. Interface possui ajustes responsivos ou orientações para uso móvel.
+**Plans**: 1 plan
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -94,7 +104,8 @@ Plans:
 | 1. Foundation | 1/1 | Complete | 2026-04-29 |
 | 2. Auth & Roles | 1/1 | Complete | 2026-04-29 |
 | 3. Member Intake | 1/1 | Complete | 2026-04-29 |
-| 4. Pastoral Dashboard | 0/2 | Not started | - |
-| 5. Messaging & Alerts | 0/1 | Not started | - |
-| 6. Advanced Permissions | 0/1 | Not started | - |
-| 7. Final Polish | 0/1 | Not started | - |
+| 4. Pastoral Dashboard | 2/2 | Complete | 2026-04-29 |
+| 5. Messaging & Alerts | 1/1 | Complete | 2026-04-29 |
+| 6. Advanced Permissions | 1/1 | Complete | 2026-04-29 |
+| 7. Final Polish | 1/1 | Complete | 2026-05-06 |
+| 8. Mobile Access | 0/1 | Pending | |

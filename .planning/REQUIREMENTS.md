@@ -36,6 +36,7 @@
 
 - [ ] **INFRA-01**: Persistência de dados em SQLite.
 - [ ] **INFRA-02**: Binário único em Go que serve o frontend Preact embutido.
+- [ ] **INFRA-03**: Acesso Mobile/LAN para permitir o uso do CRM em celulares na mesma rede via bind em 0.0.0.0.
 
 ## v2 Requirements
 
@@ -78,10 +79,11 @@
 | MSG-02 | Phase 5 | Pending |
 | MSG-03 | Phase 5 | Pending |
 | PERM-02 | Phase 6 | Pending |
+| INFRA-03 | Phase 8 | Pending |
 
 **Coverage:**
-- v1 requirements: 17 total
-- Mapped to phases: 17
+- v1 requirements: 18 total
+- Mapped to phases: 18
 - Unmapped: 0 ✓
 
 ---

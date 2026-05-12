@@ -3,66 +3,70 @@ package api
 import (
 	"net/http"
 
-	"github.com/user/crm_eclesia/internal/db"
 	"github.com/gin-gonic/gin"
+	"github.com/user/crm_eclesia/internal/db"
 )
 
-type CreateMemberRequest struct {
-	Name          string `json:"name" binding:"required"`
-	Address       string `json:"address"`
-	Phone         string `json:"phone"`
-	WhatsApp      string `json:"whatsapp" binding:"required"`
-	BirthDate     string `json:"birth_date"`
-	AttendantName string `json:"attendant_name"`
-	MaritalStatus string `json:"marital_status"`
-	Observations  string `json:"observations"`
-}
-
 func CreateMemberHandler(c *gin.Context) {
-	var req CreateMemberRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Dados obrigatórios ausentes ou inválidos"})
+	churchID, _ := c.Get("church_id")
+	userID, _ := c.Get("user_id")
+
+	var m db.Member
+	if err := c.ShouldBindJSON(&m); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Dados inválidos"})
 		return
 	}
 
-	// Recupera o ID do usuário que está logado (setado pelo middleware AuthRequired)
-	userIDVal, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao identificar usuário logado"})
-		return
-	}
-	userID := userIDVal.(int)
-
-	member := &db.Member{
-		Name:          req.Name,
-		Address:       req.Address,
-		Phone:         req.Phone,
-		WhatsApp:      req.WhatsApp,
-		BirthDate:     req.BirthDate,
-		AttendantName: req.AttendantName,
-		MaritalStatus: req.MaritalStatus,
-		Observations:  req.Observations,
-		CreatedBy:     userID,
-	}
-
-	if err := db.CreateMember(member); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao salvar cadastro no banco"})
+	// Validação simples da foto em base64.
+	// O frontend já limita em 2MB, mas aqui protegemos também o backend.
+	if len(m.PhotoURL) > 3_000_000 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "A foto enviada é muito grande. Envie uma imagem menor."})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "Cadastro realizado com sucesso",
-	})
+	m.ChurchID = churchID.(int)
+	m.CreatedBy = userID.(int)
+
+	if err := db.CreateMember(&m); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao criar membro"})
+		return
+	}
+
+	db.SaveActivity(
+		churchID.(int),
+		userID.(int),
+		"Cadastro de Membro",
+		"Cadastrou o novo membro/visitante: "+m.Name,
+	)
+
+	c.JSON(http.StatusCreated, m)
 }
 
 func GetMembersHandler(c *gin.Context) {
-	members, err := db.GetAllMembers()
+	churchID, _ := c.Get("church_id")
+
+	members, err := db.GetAllMembers(churchID.(int))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar membros"})
 		return
 	}
-	
-	// If the DB returns nil for empty slice, ensure we return an empty array instead of null
+
+	if members == nil {
+		members = []db.Member{}
+	}
+
+	c.JSON(http.StatusOK, members)
+}
+
+func GetBirthdaysHandler(c *gin.Context) {
+	churchID, _ := c.Get("church_id")
+
+	members, err := db.GetAllMembers(churchID.(int))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar aniversariantes"})
+		return
+	}
+
 	if members == nil {
 		members = []db.Member{}
 	}

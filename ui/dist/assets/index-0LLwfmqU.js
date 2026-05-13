@@ -4679,7 +4679,7 @@ function Ba({ onNavigate: t, userName: r, userRole: a }) {
                     children: [
                       "Bem-vindo,",
                       " ",
-                      a === "pastor" ? `Pr. ${r || ""}` : r || "usuário",
+                      a === "pastor" ? ` ${r || ""}` : r || "usuário",
                       " ",
                       "👋",
                     ],

@@ -219,15 +219,9 @@ export function Dashboard({
     .slice(0, 5);
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) 292px",
-        minHeight: "100vh",
-      }}
-    >
+    <div className="dashboard-layout">
       {/* ── Coluna principal ─────────────────────────────────────────── */}
-      <div style={{ overflowY: "auto", padding: "1.5rem 2rem" }}>
+      <div className="dashboard-main" style={{ overflowY: "auto", padding: "1.5rem 2rem" }}>
         {/* Cabeçalho */}
         <div
           style={{
@@ -338,14 +332,7 @@ export function Dashboard({
         )}
 
         {/* ── Stat cards ─────────────────────────────────────────────── */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-            gap: 12,
-            marginBottom: "1.5rem",
-          }}
-        >
+        <div className="stats-grid" style={{ marginBottom: "1.5rem" }}>
           {loading ? (
             Array.from({ length: 6 }).map((_, i) => <StatSkeleton key={i} />)
           ) : (
@@ -397,15 +384,7 @@ export function Dashboard({
         </div>
 
         {/* ── Linha de gráficos ──────────────────────────────────────── */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns:
-              "minmax(0, 2fr) minmax(260px, 1fr) minmax(260px, 1fr)",
-            gap: 12,
-            marginBottom: 12,
-          }}
-        >
+        <div className="content-grid" style={{ marginBottom: 12 }}>
           {/* Crescimento */}
           <div className="modern-card" style={{ margin: 0 }}>
             <div className="modern-card-header">
@@ -484,14 +463,7 @@ export function Dashboard({
         </div>
 
         {/* ── Linha inferior ─────────────────────────────────────────── */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns:
-              "minmax(260px, 1.3fr) minmax(260px, 1.2fr) minmax(250px, 1fr) minmax(260px, 1.2fr)",
-            gap: 12,
-          }}
-        >
+        <div className="content-grid">
           {/* Atividade recente */}
           <div className="modern-card" style={{ margin: 0 }}>
             <h2 className="modern-card-title" style={{ marginBottom: 12 }}>

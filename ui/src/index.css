@@ -127,6 +127,12 @@ textarea {
     z-index: 1;
 }
 
+.dashboard-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 292px;
+    min-height: 100vh;
+}
+
 /* ─── 4. SIDEBAR ────────────────────────────────────────────── */
 
 .sidebar {
@@ -612,6 +618,12 @@ body.theme-navy textarea:focus {
     margin-top: 0.75rem;
 }
 
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
 /* ─── 10. TABELAS ───────────────────────────────────────────── */
 
 .modern-table {
@@ -958,6 +970,57 @@ aside p[style*="text-align: center"] {
     }
 }
 
+/* ─── 17. LOGIN / LANDING PAGE ──────────────────────────────── */
+
+.login-layout {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    background: radial-gradient(circle at top left, rgba(124,58,237,0.26), transparent 35%), radial-gradient(circle at bottom right, rgba(37,99,235,0.18), transparent 32%), linear-gradient(135deg,#030712 0%,#070B1A 45%,#020617 100%);
+    color: #fff;
+}
+
+.login-left {
+    padding: 3rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    border-right: 1px solid rgba(255,255,255,0.08);
+}
+
+.login-title {
+    font-size: 3rem;
+    line-height: 1.08;
+    letter-spacing: -0.05em;
+    font-weight: 900;
+    margin: 0;
+}
+
+.feature-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 2rem;
+}
+
+.login-right {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 430px;
+    padding: 2rem;
+    border-radius: 26px;
+    background: rgba(17,24,39,0.76);
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.48);
+    backdrop-filter: blur(18px);
+}
+
 /* ─── 18. RESPONSIVO REAL PARA CELULAR ─────────────────────── */
 
 html,
@@ -976,11 +1039,51 @@ video {
 }
 
 @media (max-width: 768px) {
-    .app-layout {
-        display: block;
+    .app-layout,
+    .dashboard-layout {
+        display: flex !important;
+        flex-direction: column !important;
         width: 100%;
         min-height: 100vh;
         overflow-x: hidden;
+    }
+
+    .dashboard-main {
+        padding: 15px !important;
+    }
+
+    .login-layout {
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 100vh;
+    }
+
+    .login-left {
+        padding: 2.5rem 1.5rem 1.5rem !important;
+        border-right: none !important;
+        border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+        align-items: center;
+        text-align: center;
+    }
+
+    .login-title {
+        font-size: 2.2rem !important;
+    }
+
+    .feature-cards {
+        grid-template-columns: 1fr !important;
+    }
+
+    .login-right {
+        padding: 1.5rem !important;
+        align-items: flex-start !important;
+        flex: 1;
+    }
+
+    .login-card {
+        padding: 1.5rem !important;
+        max-width: 100% !important;
+        margin: 0 auto;
     }
 
     .sidebar {
@@ -1097,6 +1200,10 @@ video {
         gap: 10px;
     }
 
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
     .btn-primary,
     .btn-secondary,
     .btn-help,
@@ -1150,10 +1257,30 @@ video {
     }
 
     .modern-table tbody td {
-        padding: 8px 4px;
-        border-bottom: 1px solid var(--border);
-        font-size: 0.82rem;
-        word-break: break-word;
+        padding: 10px 0 !important;
+        border-bottom: 1px solid var(--border) !important;
+        font-size: 0.85rem !important;
+        word-break: break-word !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+    }
+
+    .modern-table tbody td[colspan] {
+        display: block !important;
+        text-align: center !important;
+        justify-content: center !important;
+    }
+
+    .modern-table tbody td[colspan]::before {
+        display: none !important;
+    }
+
+    .modern-table tbody td::before {
+        content: attr(data-label);
+        font-weight: 800;
+        color: var(--text-muted);
+        margin-right: 15px;
     }
 
     .modern-table tbody td:last-child {
@@ -1165,7 +1292,7 @@ video {
     }
 }
 
-@media (max-width: 420px) {
+@media (max-width: 480px) {
     .main-content {
         padding: 8px;
     }
@@ -1181,7 +1308,21 @@ video {
 
     .modern-card,
     .stat-card,
+    .login-card,
     article {
-        padding: 10px;
+        padding: 1rem !important;
+        border-radius: 16px !important;
+    }
+
+    .login-title {
+        font-size: 1.8rem !important;
+    }
+
+    .login-left {
+        padding: 1.5rem 1rem !important;
+    }
+
+    .login-right {
+        padding: 1rem !important;
     }
 }

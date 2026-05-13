@@ -69,26 +69,8 @@ export function Login({
   }
 
   return (
-    <main
-      style={{
-        minHeight: '100vh',
-        display: 'grid',
-        gridTemplateColumns: '1.05fr 0.95fr',
-        background:
-          'radial-gradient(circle at top left, rgba(124,58,237,0.26), transparent 35%), radial-gradient(circle at bottom right, rgba(37,99,235,0.18), transparent 32%), linear-gradient(135deg,#030712 0%,#070B1A 45%,#020617 100%)',
-        color: '#fff',
-        fontFamily: 'Inter, sans-serif',
-      }}
-    >
-      <section
-        style={{
-          padding: '3rem',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          borderRight: '1px solid rgba(255,255,255,0.08)',
-        }}
-      >
+    <main className="login-layout">
+      <section className="login-left">
         <div
           style={{
             display: 'flex',
@@ -134,15 +116,7 @@ export function Login({
             Plataforma pastoral segura
           </span>
 
-          <h1
-            style={{
-              fontSize: '3rem',
-              lineHeight: 1.08,
-              letterSpacing: '-0.05em',
-              fontWeight: 900,
-              margin: 0,
-            }}
-          >
+          <h1 className="login-title">
             Acesse o painel da sua igreja com segurança e cuidado.
           </h1>
 
@@ -158,14 +132,7 @@ export function Login({
             pedidos de oração e acompanhamento espiritual em um único lugar.
           </p>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: 12,
-              marginTop: '2rem',
-            }}
-          >
+          <div className="feature-cards">
             <InfoCard title="Seguro" desc="Login protegido" color="#10B981" />
             <InfoCard title="Pastoral" desc="Cuidado real" color="#7C3AED" />
             <InfoCard title="WhatsApp" desc="Mensagens rápidas" color="#2563EB" />
@@ -177,26 +144,8 @@ export function Login({
         </p>
       </section>
 
-      <section
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '2rem',
-        }}
-      >
-        <article
-          style={{
-            width: '100%',
-            maxWidth: 430,
-            padding: '2rem',
-            borderRadius: 26,
-            background: 'rgba(17,24,39,0.76)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            boxShadow: '0 30px 80px rgba(0,0,0,0.48)',
-            backdropFilter: 'blur(18px)',
-          }}
-        >
+      <section className="login-right">
+        <article className="login-card">
           {!showForgot ? (
             <>
               <header style={{ textAlign: 'center', marginBottom: '1.8rem' }}>

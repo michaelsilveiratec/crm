@@ -59,8 +59,8 @@ export function Register({ onNavigate }: { onNavigate: (path: string) => void })
 
   if (success) {
     return (
-      <main style={pageStyle}>
-        <section style={successCardStyle}>
+      <main className="login-layout">
+        <section className="login-card" style={{ margin: 'auto', textAlign: 'center' }}>
           <div style={successIconStyle}>✓</div>
 
           <h1 style={successTitleStyle}>Igreja cadastrada com sucesso!</h1>
@@ -88,8 +88,8 @@ export function Register({ onNavigate }: { onNavigate: (path: string) => void })
   }
 
   return (
-    <main style={pageStyle}>
-      <section style={leftPanelStyle}>
+    <main className="login-layout">
+      <section className="login-left">
         <div style={brandStyle}>
           <div style={brandIconStyle}>✚</div>
           <span>CRM Bom Samaritano</span>
@@ -98,7 +98,7 @@ export function Register({ onNavigate }: { onNavigate: (path: string) => void })
         <div style={{ maxWidth: 560 }}>
           <span style={badgeStyle}>Teste grátis por 7 dias</span>
 
-          <h1 style={heroTitleStyle}>
+          <h1 className="login-title">
             Cadastre sua igreja e comece a cuidar melhor das pessoas.
           </h1>
 
@@ -108,7 +108,7 @@ export function Register({ onNavigate }: { onNavigate: (path: string) => void })
             da sua igreja.
           </p>
 
-          <div style={benefitsGridStyle}>
+          <div className="feature-cards">
             <InfoCard title="Sem instalação" desc="Acesse direto pelo navegador" color="#7C3AED" />
             <InfoCard title="Multiusuário" desc="Pastor e obreiros separados" color="#2563EB" />
             <InfoCard title="Pastoral" desc="Cuidado, visitas e mensagens" color="#10B981" />
@@ -120,8 +120,8 @@ export function Register({ onNavigate }: { onNavigate: (path: string) => void })
         </p>
       </section>
 
-      <section style={formPanelStyle}>
-        <article style={registerCardStyle}>
+      <section className="login-right">
+        <article className="login-card">
           <header style={{ textAlign: 'center', marginBottom: '1.8rem' }}>
             <div style={formIconStyle}>⛪</div>
 
@@ -135,7 +135,7 @@ export function Register({ onNavigate }: { onNavigate: (path: string) => void })
           <form onSubmit={handleSubmit}>
             <div style={sectionTitleStyle}>Dados da Igreja</div>
 
-            <div style={gridStyle}>
+            <div className="form-grid">
               <FieldLabel text="Nome da Igreja">
                 <input
                   type="text"
@@ -170,7 +170,7 @@ export function Register({ onNavigate }: { onNavigate: (path: string) => void })
 
             <div style={sectionTitleStyle}>Pastor Administrador</div>
 
-            <div style={gridStyle}>
+            <div className="form-grid">
               <FieldLabel text="Nome completo">
                 <input
                   type="text"
@@ -194,7 +194,7 @@ export function Register({ onNavigate }: { onNavigate: (path: string) => void })
               </FieldLabel>
             </div>
 
-            <div style={gridStyle}>
+            <div className="form-grid">
               <FieldLabel text="Usuário de login">
                 <input
                   type="text"

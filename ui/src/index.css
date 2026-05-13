@@ -1,13 +1,14 @@
 /* =============================================================
    CRM ECLESIA — Design System
    Versão limpa e consolidada. Sem duplicações, sem !important
-   desnecessário. Temas: navy (padrão), dark.
+   desnecessário. Temas: navy (padrão), dark, light.
 ============================================================= */
 
 /* ─── 1. VARIÁVEIS DE TEMA ─────────────────────────────────── */
 
 :root,
 body.theme-navy {
+    /* Paleta Aurora Premium */
     --primary: #da7b93;
     --primary-hover: #c76580;
     --primary-bg: rgba(218, 123, 147, 0.15);
@@ -56,6 +57,8 @@ body.theme-dark {
     --shadow-sm: 0 8px 20px rgba(0, 0, 0, 0.35);
 }
 
+/* Tema light removido — apenas Azul e Escuro disponíveis */
+
 /* ─── 2. RESET ──────────────────────────────────────────────── */
 
 *,
@@ -68,10 +71,8 @@ html,
 body,
 #app {
     width: 100%;
-    max-width: 100%;
     min-height: 100%;
     margin: 0;
-    overflow-x: hidden;
 }
 
 body {
@@ -88,6 +89,7 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
+/* Fundo degradê para o tema navy */
 body.theme-navy {
     background:
         radial-gradient(
@@ -113,13 +115,6 @@ input,
 select,
 textarea {
     font-family: inherit;
-}
-
-img,
-svg,
-video,
-canvas {
-    max-width: 100%;
 }
 
 /* ─── 3. LAYOUT PRINCIPAL ───────────────────────────────────── */
@@ -151,6 +146,7 @@ canvas {
     z-index: 10;
 }
 
+/* Sidebar premium aurora */
 body.theme-navy .sidebar {
     background:
         linear-gradient(180deg, rgba(28, 51, 52, 0.98), rgba(46, 21, 27, 0.96)),
@@ -242,6 +238,7 @@ body.theme-navy .sidebar {
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
 }
 
+/* Aurora: item ativo */
 body.theme-navy .sidebar-item.active {
     background: linear-gradient(135deg, #da7b93, #376e6f);
     box-shadow:
@@ -282,9 +279,9 @@ body.theme-navy .sidebar-profile {
     overflow-x: hidden;
     position: relative;
     z-index: 1;
-    max-width: 100%;
 }
 
+/* Fundo sutil para o conteúdo no tema navy */
 body.theme-navy .main-content {
     background:
         radial-gradient(
@@ -337,9 +334,9 @@ article {
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow);
     color: var(--text-main);
-    max-width: 100%;
 }
 
+/* Blur apenas nos temas escuros */
 body.theme-navy .modern-card,
 body.theme-navy .stat-card,
 body.theme-navy article,
@@ -349,6 +346,7 @@ body.theme-dark article {
     backdrop-filter: blur(14px);
 }
 
+/* Aurora: cards com toque premium */
 body.theme-navy .modern-card,
 body.theme-navy .stat-card,
 body.theme-navy article {
@@ -384,6 +382,7 @@ body.theme-navy article {
     color: var(--text-main);
 }
 
+/* Grids de cards */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
@@ -409,6 +408,7 @@ body.theme-navy article {
     overflow: hidden;
 }
 
+/* Brilho sutil no stat-card Aurora */
 body.theme-navy .stat-card::before {
     content: "";
     position: absolute;
@@ -424,6 +424,7 @@ body.theme-navy .stat-card::before {
 
 /* ─── 8. BOTÕES ─────────────────────────────────────────────── */
 
+/* Base comum */
 button,
 .btn-primary,
 .btn-secondary,
@@ -437,6 +438,7 @@ button,
     cursor: pointer;
 }
 
+/* Primário */
 .btn-primary,
 button[type="submit"] {
     background: linear-gradient(135deg, var(--primary), var(--primary-hover));
@@ -464,6 +466,7 @@ button[type="submit"]:disabled {
     filter: none;
 }
 
+/* Secundário */
 .btn-secondary,
 .btn-help,
 .view-all-btn {
@@ -492,6 +495,7 @@ button[type="submit"]:disabled {
     transform: none;
 }
 
+/* Ícone */
 .btn-icon {
     width: 36px;
     height: 36px;
@@ -526,6 +530,7 @@ button[type="submit"]:disabled {
     transform: none;
 }
 
+/* Grupo de botões de ação na tabela */
 .action-btns {
     display: flex;
     align-items: center;
@@ -585,6 +590,7 @@ textarea:disabled {
     cursor: not-allowed;
 }
 
+/* Aurora: inputs */
 body.theme-navy input,
 body.theme-navy select,
 body.theme-navy textarea {
@@ -607,10 +613,6 @@ body.theme-navy textarea:focus {
 }
 
 /* ─── 10. TABELAS ───────────────────────────────────────────── */
-
-.modern-card:has(.modern-table) {
-    overflow-x: auto;
-}
 
 .modern-table {
     width: 100%;
@@ -643,6 +645,7 @@ body.theme-navy textarea:focus {
     background: rgba(255, 255, 255, 0.04);
 }
 
+/* Aurora: tabela */
 body.theme-navy .modern-table thead th {
     color: #d7b6be;
     border-bottom-color: rgba(218, 123, 147, 0.18);
@@ -728,7 +731,6 @@ code {
     border-color: var(--primary);
     background: var(--primary-bg);
 }
-
 .theme-option-card.active {
     border-color: var(--primary);
     box-shadow: 0 0 0 3px var(--primary-bg);
@@ -751,7 +753,6 @@ code {
         #da7b93
     );
 }
-
 .theme-preview.dark {
     background: linear-gradient(135deg, #000, #18181b);
 }
@@ -761,7 +762,6 @@ code {
     font-size: 0.9rem;
     color: var(--text-main);
 }
-
 .theme-option-info span {
     display: block;
     font-size: 0.78rem;
@@ -787,7 +787,7 @@ code {
     line-height: 1.25;
 }
 
-/* ─── 15. FUNDO UNIVERSO ────────────────────────────────────── */
+/* ─── 15. FUNDO UNIVERSO (BUBBLES) ───────────────────────────── */
 
 .universe-bg {
     position: fixed;
@@ -884,8 +884,9 @@ code {
     }
 }
 
-/* ─── 16. GRÁFICO DONUT ─────────────────────────────────────── */
+/* ─── 16. GRÁFICO DONUT — CENTRALIZAÇÃO ──────────────────────── */
 
+/* Centraliza os cards que têm donut */
 .modern-card:has(svg[viewBox="0 0 144 144"]) {
     display: flex;
     flex-direction: column;
@@ -911,6 +912,7 @@ code {
     margin: 0.8rem 0 1rem;
 }
 
+/* Empty states centralizados */
 .modern-card p[style*="text-align: center"],
 aside p[style*="text-align: center"] {
     width: 100%;
@@ -925,7 +927,7 @@ aside p[style*="text-align: center"] {
     color: var(--text-muted);
 }
 
-/* ─── 17. ANIMAÇÕES ─────────────────────────────────────────── */
+/* ─── 17. ANIMAÇÃO SPIN (LOADING BUTTON) ────────────────────── */
 
 @keyframes spin {
     from {
@@ -956,9 +958,96 @@ aside p[style*="text-align: center"] {
     }
 }
 
-/* ─── 18. RESPONSIVO COMPLETO ───────────────────────────────── */
+/* ─── 18. RESPONSIVO ─────────────────────────────────────────── */
 
-/* Notebook, tablet grande e telas médias */
+@media (max-width: 1200px) {
+    .app-layout {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        min-width: 100%;
+        height: auto;
+        position: relative;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        box-shadow: none;
+    }
+
+    .sidebar-nav {
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 8px 12px;
+    }
+    .section-label {
+        display: none;
+    }
+    .sidebar-item {
+        width: auto;
+        min-width: max-content;
+        white-space: nowrap;
+    }
+    .sidebar-profile {
+        display: none;
+    }
+
+    .main-content {
+        width: 100%;
+        padding: 1rem;
+    }
+
+    .app-layout aside:not(.sidebar) {
+        display: none;
+    }
+    .content-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .main-content {
+        padding: 0.75rem;
+    }
+    .page-header {
+        flex-direction: column;
+    }
+    .page-header h1 {
+        font-size: 1.4rem;
+    }
+    .modern-card {
+        padding: 1rem;
+        border-radius: 16px;
+    }
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    .modern-table {
+        min-width: 680px;
+    }
+}
+/* ─── 18. RESPONSIVO PREMIUM ───────────────────────────────── */
+
+/* Evita qualquer estouro horizontal */
+html,
+body,
+#app {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+img,
+svg,
+video,
+canvas {
+    max-width: 100%;
+}
+
+.main-content > * {
+    max-width: 100%;
+}
+
+/* Tablets e telas médias */
 @media (max-width: 1200px) {
     .app-layout {
         flex-direction: column;
@@ -970,9 +1059,11 @@ aside p[style*="text-align: center"] {
         height: auto;
         max-height: none;
         position: relative;
+        top: auto;
         border-right: none;
         border-bottom: 1px solid var(--border);
         box-shadow: none;
+        z-index: 20;
     }
 
     .sidebar-header {
@@ -981,11 +1072,12 @@ aside p[style*="text-align: center"] {
 
     .sidebar-nav {
         flex-direction: row;
+        gap: 8px;
         overflow-x: auto;
         overflow-y: hidden;
-        padding: 8px 12px;
-        gap: 8px;
+        padding: 8px 12px 12px;
         scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
     }
 
     .section-label {
@@ -995,7 +1087,9 @@ aside p[style*="text-align: center"] {
     .sidebar-item {
         width: auto;
         min-width: max-content;
+        height: 40px;
         white-space: nowrap;
+        padding: 0 12px;
         flex-shrink: 0;
     }
 
@@ -1006,27 +1100,36 @@ aside p[style*="text-align: center"] {
     .main-content {
         width: 100%;
         min-height: auto;
-        padding: 1.25rem;
-    }
-
-    .app-layout aside:not(.sidebar),
-    .main-content aside {
-        display: none;
+        padding: 1rem;
     }
 
     .content-grid {
         grid-template-columns: 1fr;
     }
+
+    .app-layout aside:not(.sidebar),
+    .main-content aside {
+        width: 100%;
+        border-left: none;
+        border-top: 1px solid var(--border);
+    }
 }
 
-/* iPad Mini, iPad Air, iPad Pro, Surface e tablets */
-@media (max-width: 1024px) {
+/* Celulares grandes */
+@media (max-width: 900px) {
     .page-header {
-        align-items: flex-start;
+        align-items: stretch;
     }
 
-    .page-header h1 {
-        font-size: clamp(1.45rem, 3vw, 1.75rem);
+    .page-header > div,
+    .page-header > section,
+    .page-header > aside {
+        width: 100%;
+    }
+
+    .modern-card-header {
+        flex-direction: column;
+        align-items: stretch;
     }
 
     .stats-grid {
@@ -1034,18 +1137,53 @@ aside p[style*="text-align: center"] {
     }
 
     .theme-option-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: 1fr;
     }
 
-    .modern-card-header {
+    .form-actions {
+        justify-content: stretch;
         flex-wrap: wrap;
+    }
+
+    .form-actions button,
+    .form-actions .btn-primary,
+    .form-actions .btn-secondary {
+        flex: 1 1 160px;
+        justify-content: center;
     }
 }
 
-/* iPhone XR, iPhone 12/14 Pro Max, Pixel, Galaxy e celulares grandes */
-@media (max-width: 768px) {
+/* Celulares */
+@media (max-width: 720px) {
+    body {
+        font-size: 15px;
+    }
+
     .main-content {
-        padding: 0.9rem;
+        padding: 0.75rem;
+    }
+
+    .sidebar-header {
+        gap: 10px;
+        padding: 12px;
+    }
+
+    .sidebar-header h2 {
+        font-size: 0.95rem;
+    }
+
+    .sidebar-header p {
+        font-size: 0.72rem;
+    }
+
+    .sidebar-nav {
+        padding: 8px 10px 10px;
+    }
+
+    .sidebar-item {
+        min-height: 38px;
+        font-size: 0.82rem;
+        border-radius: 10px;
     }
 
     .page-header {
@@ -1055,8 +1193,8 @@ aside p[style*="text-align: center"] {
     }
 
     .page-header h1 {
-        font-size: 1.4rem;
-        line-height: 1.2;
+        font-size: clamp(1.35rem, 7vw, 1.75rem);
+        letter-spacing: -0.03em;
     }
 
     .page-header p {
@@ -1066,18 +1204,16 @@ aside p[style*="text-align: center"] {
     .modern-card {
         padding: 1rem;
         border-radius: 16px;
+        margin-bottom: 0.85rem;
     }
 
-    .modern-card-header {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0.75rem;
+    .modern-card-title {
+        font-size: 1rem;
     }
 
-    .stats-grid,
-    .content-grid,
-    .theme-option-grid {
+    .stats-grid {
         grid-template-columns: 1fr;
+        gap: 10px;
     }
 
     .stat-card {
@@ -1085,75 +1221,66 @@ aside p[style*="text-align: center"] {
         padding: 0.9rem;
     }
 
-    .form-actions {
-        flex-direction: column-reverse;
-        align-items: stretch;
-    }
-
-    .form-actions button,
-    .btn-primary,
-    .btn-secondary,
-    .btn-help,
-    .view-all-btn {
-        width: 100%;
-        justify-content: center;
-    }
-
-    .action-btns {
-        gap: 8px;
+    .content-grid {
+        gap: 0.9rem;
     }
 
     input,
     select,
     textarea {
+        min-height: 44px;
         font-size: 16px;
     }
 
+    .btn-primary,
+    .btn-secondary,
+    .btn-help,
+    .view-all-btn,
+    button[type="submit"] {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .btn-icon {
+        width: 38px;
+        height: 38px;
+        min-width: 38px;
+    }
+
+    .action-btns {
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
     .modern-table {
-        min-width: 620px;
+        min-width: 680px;
+    }
+
+    .modern-card:has(.modern-table),
+    .table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 }
 
-/* iPhone SE e celulares pequenos */
+/* Celulares pequenos */
 @media (max-width: 480px) {
+    .main-content {
+        padding: 0.6rem;
+    }
+
     .sidebar-header {
-        padding: 12px;
-    }
-
-    .sidebar-header h2 {
-        font-size: 0.92rem;
-    }
-
-    .sidebar-header p {
-        font-size: 0.7rem;
-    }
-
-    .sidebar-nav {
-        padding: 7px 10px;
+        align-items: flex-start;
     }
 
     .sidebar-item {
-        min-height: 38px;
-        padding: 0 10px;
         font-size: 0.8rem;
-        border-radius: 10px;
-    }
-
-    .main-content {
-        padding: 0.65rem;
-    }
-
-    .page-header h1 {
-        font-size: 1.25rem;
+        padding: 0 10px;
     }
 
     .modern-card {
         padding: 0.85rem;
         border-radius: 14px;
-    }
-
-    .modern-card-title {
-        font-size: 0.98rem;
     }
 
     .stat-card {
@@ -1162,58 +1289,42 @@ aside p[style*="text-align: center"] {
         gap: 0.6rem;
     }
 
-    .btn-icon {
-        width: 34px;
-        height: 34px;
-        min-width: 34px;
+    .theme-option-card {
+        padding: 0.85rem;
     }
 
-    .modern-table {
-        min-width: 560px;
+    .theme-preview {
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
     }
 
-    .modern-table thead th,
-    .modern-table tbody td {
-        padding: 0.7rem;
-        font-size: 0.82rem;
+    .badge,
+    code {
+        font-size: 0.68rem;
+    }
+
+    .universe-bg {
+        opacity: 0.25;
     }
 }
 
-/* Galaxy Fold, Surface Duo e telas muito estreitas */
+/* Telas muito pequenas */
 @media (max-width: 360px) {
-    .main-content {
-        padding: 0.5rem;
-    }
-
     .page-header h1 {
-        font-size: 1.15rem;
-    }
-
-    .modern-card {
-        padding: 0.75rem;
+        font-size: 1.25rem;
     }
 
     .sidebar-item {
+        min-height: 36px;
         font-size: 0.76rem;
     }
 
-    .modern-table {
-        min-width: 520px;
-    }
-}
-
-/* Celular deitado, paisagem */
-@media (max-height: 520px) and (orientation: landscape) {
-    .sidebar {
-        max-height: 42vh;
-        overflow-y: auto;
-    }
-
-    .main-content {
-        padding: 0.75rem;
-    }
-
-    .modern-card {
-        margin-bottom: 0.75rem;
+    .btn-primary,
+    .btn-secondary,
+    .btn-help,
+    .view-all-btn {
+        font-size: 0.78rem;
+        padding: 0.6rem 0.8rem;
     }
 }

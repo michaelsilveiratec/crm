@@ -1,154 +1,234 @@
-import { useState, useEffect } from 'preact/hooks'
+import { useState, useEffect } from "preact/hooks";
+import {
+  SummaryCard,
+  StatusBadge,
+  LoadingState,
+  EmptyState,
+  Alert,
+  PageBadge,
+  Modal,
+} from "./shared";
+import { useNotification } from "../hooks/useNotification";
+
+// ─── Interfaces ────────────────────────────────────────────────────────────────
 
 interface PastoralVisit {
-  id: number
-  member_id: number
-  address: string
-  visit_date: string
-  visit_time: string
-  responsible_id: number
-  conducted_by: string
-  notes: string
-  result: string
-  status: string
-  carried_holy_communion: boolean
+  id: number;
+  member_id: number;
+  address: string;
+  visit_date: string;
+  visit_time: string;
+  responsible_id: number;
+  conducted_by: string;
+  notes: string;
+  result: string;
+  status: string;
+  carried_holy_communion: boolean;
 }
 
 interface Member {
-  id: number
-  name: string
+  id: number;
+  name: string;
 }
 
-const statusMap: Record<string, { label: string; color: string; icon: string }> = {
-  Agendada: { label: 'Agendada', color: '#8B5CF6', icon: '📅' },
-  Realizada: { label: 'Realizada', color: '#10B981', icon: '✅' },
-  Cancelada: { label: 'Cancelada', color: '#EF4444', icon: '✕' },
-  Reagendada: { label: 'Reagendada', color: '#F59E0B', icon: '🔁' },
-  Pendente: { label: 'Pendente', color: '#F59E0B', icon: '⏳' },
-}
+// ─── Constantes ────────────────────────────────────────────────────────────────
+
+const statusMap: Record<
+  string,
+  { label: string; color: string; icon: string }
+> = {
+  Agendada: { label: "Agendada", color: "#8B5CF6", icon: "📅" },
+  Realizada: { label: "Realizada", color: "#10B981", icon: "✅" },
+  Cancelada: { label: "Cancelada", color: "#EF4444", icon: "✕" },
+  Reagendada: { label: "Reagendada", color: "#F59E0B", icon: "🔁" },
+  Pendente: { label: "Pendente", color: "#F59E0B", icon: "⏳" },
+};
+
+const emptyForm = {
+  member_id: 0,
+  address: "",
+  visit_date: "",
+  visit_time: "",
+  responsible_id: 0,
+  conducted_by: "",
+  notes: "",
+  result: "",
+  status: "Agendada",
+  carried_holy_communion: false,
+};
+
+// ─── Componente Principal ─────────────────────────────────────────────────────
 
 export function PastoralVisits({ role }: { role: string }) {
-  const [visits, setVisits] = useState<PastoralVisit[]>([])
-  const [members, setMembers] = useState<Member[]>([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [showModal, setShowModal] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [visits, setVisits] = useState<PastoralVisit[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const apiPrefix = role === 'pastor' ? '/api/pastor' : '/api/worker'
+  const [showModal, setShowModal] = useState(false);
+  const [editingVisit, setEditingVisit] = useState<PastoralVisit | null>(null);
+  const [detailsVisit, setDetailsVisit] = useState<PastoralVisit | null>(null);
 
-  const [formData, setFormData] = useState({
-    member_id: 0,
-    address: '',
-    visit_date: '',
-    visit_time: '',
-    responsible_id: 0,
-    conducted_by: '',
-    notes: '',
-    result: '',
-    status: 'Agendada',
-    carried_holy_communion: false,
-  })
+  // Busca por nome do visitado
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Notificações via hook compartilhado
+  const {
+    notification,
+    showSuccess,
+    showError,
+    clear: clearNotification,
+  } = useNotification();
+
+  const apiPrefix = role === "pastor" ? "/api/pastor" : "/api/worker";
+
+  const [formData, setFormData] = useState({ ...emptyForm });
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    fetchData();
+  }, []);
+
+  // ─── Fetches ─────────────────────────────────────────────────────────────
 
   const fetchData = async () => {
-    setLoading(true)
-    setError('')
+    setLoading(true);
 
     try {
       const [vRes, mRes] = await Promise.all([
         fetch(`${apiPrefix}/visits`),
         fetch(`${apiPrefix}/members`),
-      ])
+      ]);
 
       if (!vRes.ok || !mRes.ok) {
-        throw new Error('Erro ao carregar visitas pastorais.')
+        throw new Error("Erro ao carregar visitas pastorais.");
       }
 
-      const vData = await vRes.json()
-      const mData = await mRes.json()
+      const vData = await vRes.json();
+      const mData = await mRes.json();
 
-      setVisits(vData || [])
-      setMembers(mData || [])
-    } catch (err: any) {
-      setError(err.message || 'Não foi possível carregar os dados de visitas.')
+      setVisits(vData || []);
+      setMembers(mData || []);
+    } catch (err: unknown) {
+      showError(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível carregar os dados de visitas.",
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
+
+  // ─── Form ─────────────────────────────────────────────────────────────────
+
+  const resetForm = () => {
+    setFormData({ ...emptyForm });
+    setEditingVisit(null);
+  };
+
+  const openCreateModal = () => {
+    resetForm();
+    setShowModal(true);
+  };
+
+  const openEditModal = (visit: PastoralVisit) => {
+    setEditingVisit(visit);
+    setFormData({
+      member_id: visit.member_id,
+      address: visit.address,
+      visit_date: visit.visit_date,
+      visit_time: visit.visit_time,
+      responsible_id: visit.responsible_id,
+      conducted_by: visit.conducted_by,
+      notes: visit.notes,
+      result: visit.result,
+      status: visit.status,
+      carried_holy_communion: visit.carried_holy_communion,
+    });
+    setShowModal(true);
+  };
 
   const handleSave = async (e: Event) => {
-    e.preventDefault()
-    setSaving(true)
-    setError('')
-    setSuccess('')
+    e.preventDefault();
+    setSaving(true);
 
     try {
-      const resp = await fetch(`${apiPrefix}/visits`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const method = editingVisit ? "PUT" : "POST";
+      const url = editingVisit
+        ? `${apiPrefix}/visits/${editingVisit.id}`
+        : `${apiPrefix}/visits`;
+
+      const resp = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
-      })
+      });
 
       if (!resp.ok) {
-        throw new Error('Erro ao salvar visita pastoral.')
+        throw new Error(
+          editingVisit
+            ? "Erro ao atualizar visita pastoral."
+            : "Erro ao agendar visita pastoral.",
+        );
       }
 
-      setShowModal(false)
+      setShowModal(false);
+      resetForm();
 
-      setFormData({
-        member_id: 0,
-        address: '',
-        visit_date: '',
-        visit_time: '',
-        responsible_id: 0,
-        conducted_by: '',
-        notes: '',
-        result: '',
-        status: 'Agendada',
-        carried_holy_communion: false,
-      })
+      showSuccess(
+        editingVisit
+          ? "Visita pastoral atualizada com sucesso."
+          : "Visita pastoral agendada com sucesso.",
+      );
 
-      setSuccess('Visita pastoral agendada com sucesso.')
-      await fetchData()
-
-      setTimeout(() => setSuccess(''), 3000)
-    } catch (err: any) {
-      setError(err.message || 'Erro de conexão ao salvar visita.')
+      await fetchData();
+    } catch (err: unknown) {
+      showError(
+        err instanceof Error
+          ? err.message
+          : "Erro de conexão ao salvar visita.",
+      );
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
-  const totalVisits = visits.length
-  const scheduled = visits.filter(v => v.status === 'Agendada').length
-  const completed = visits.filter(v => v.status === 'Realizada').length
-  const communion = visits.filter(v => v.carried_holy_communion).length
-  const pending = visits.filter(v => ['Pendente', 'Reagendada'].includes(v.status)).length
+  // ─── Dados derivados ──────────────────────────────────────────────────────
+
+  const filteredVisits = visits.filter((v) => {
+    if (!searchTerm.trim()) return true;
+    const member = members.find((m) => m.id === v.member_id);
+    return (
+      member?.name.toLowerCase().includes(searchTerm.toLowerCase()) ?? false
+    );
+  });
+
+  const totalVisits = visits.length;
+  const scheduled = visits.filter((v) => v.status === "Agendada").length;
+  const completed = visits.filter((v) => v.status === "Realizada").length;
+  const communion = visits.filter((v) => v.carried_holy_communion).length;
+  const pending = visits.filter((v) =>
+    ["Pendente", "Reagendada"].includes(v.status),
+  ).length;
+
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div className="main-content">
+      {/* Notificação inline */}
+      {notification && (
+        <Alert
+          type={notification.type}
+          message={notification.message}
+          onClose={clearNotification}
+          autoDismiss={3500}
+        />
+      )}
+
+      {/* Cabeçalho */}
       <div className="page-header">
         <div>
-          <span
-            style={{
-              display: 'inline-flex',
-              padding: '0.35rem 0.75rem',
-              borderRadius: 999,
-              background: 'rgba(16,185,129,0.14)',
-              border: '1px solid rgba(16,185,129,0.35)',
-              color: '#34D399',
-              fontSize: '0.75rem',
-              fontWeight: 800,
-              marginBottom: '0.75rem',
-            }}
-          >
-            Cuidado pastoral nas casas
-          </span>
+          <PageBadge color="green">Cuidado pastoral nas casas</PageBadge>
 
           <h1>🏠 Visitas Pastorais</h1>
 
@@ -158,50 +238,103 @@ export function PastoralVisits({ role }: { role: string }) {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: "flex", gap: 10 }}>
           <button className="btn-help" onClick={fetchData}>
             Atualizar
           </button>
 
-          <button className="btn-primary" onClick={() => setShowModal(true)}>
+          <button className="btn-primary" onClick={openCreateModal}>
             + Agendar Visita
           </button>
         </div>
       </div>
 
-      {success && <Alert type="success" message={success} />}
-      {error && <Alert type="error" message={error} />}
-
+      {/* Sumário */}
       <div
         className="stats-grid"
         style={{
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          marginBottom: '1.5rem',
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          marginBottom: "1.5rem",
         }}
       >
-        <SummaryCard title="Total de Visitas" value={totalVisits} color="#8B5CF6" icon="🏠" />
-        <SummaryCard title="Agendadas" value={scheduled} color="#2563EB" icon="📅" />
-        <SummaryCard title="Realizadas" value={completed} color="#10B981" icon="✅" />
-        <SummaryCard title="Santa Ceia" value={communion} color="#F59E0B" icon="🍇" />
-        <SummaryCard title="Pendências" value={pending} color="#EF4444" icon="⏳" />
+        <SummaryCard
+          title="Total de Visitas"
+          value={totalVisits}
+          color="#8B5CF6"
+          icon="🏠"
+        />
+        <SummaryCard
+          title="Agendadas"
+          value={scheduled}
+          color="#2563EB"
+          icon="📅"
+        />
+        <SummaryCard
+          title="Realizadas"
+          value={completed}
+          color="#10B981"
+          icon="✅"
+        />
+        <SummaryCard
+          title="Santa Ceia"
+          value={communion}
+          color="#F59E0B"
+          icon="🍇"
+        />
+        <SummaryCard
+          title="Pendências"
+          value={pending}
+          color="#EF4444"
+          icon="⏳"
+        />
       </div>
 
+      {/* Tabela de visitas */}
       <div className="modern-card">
         <div className="modern-card-header">
           <div>
             <h2 className="modern-card-title">Agenda de Visitas</h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: 4 }}>
+            <p
+              style={{
+                color: "var(--text-muted)",
+                fontSize: "0.8rem",
+                marginTop: 4,
+              }}
+            >
               Acompanhe visitas agendadas, realizadas e pedidos de Santa Ceia.
             </p>
           </div>
+
+          {/* Busca por nome do visitado */}
+          <input
+            type="text"
+            placeholder="Buscar por nome do membro..."
+            value={searchTerm}
+            onInput={(e) => setSearchTerm(e.currentTarget.value)}
+            style={{ maxWidth: 260 }}
+          />
         </div>
 
         {loading ? (
-          <LoadingState />
-        ) : visits.length === 0 ? (
-          <EmptyState onCreate={() => setShowModal(true)} />
+          <LoadingState rows={6} height={62} />
+        ) : filteredVisits.length === 0 ? (
+          <EmptyState
+            icon="🏠"
+            title={
+              searchTerm
+                ? "Nenhuma visita encontrada"
+                : "Nenhuma visita pastoral agendada"
+            }
+            description={
+              searchTerm
+                ? `Não encontramos visitas para "${searchTerm}". Tente outro nome.`
+                : "Agende visitas para membros, enfermos, afastados ou famílias que precisam de cuidado pastoral."
+            }
+            actionLabel={searchTerm ? undefined : "Agendar primeira visita"}
+            onAction={searchTerm ? undefined : openCreateModal}
+          />
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <div style={{ overflowX: "auto" }}>
             <table className="modern-table">
               <thead>
                 <tr>
@@ -216,39 +349,68 @@ export function PastoralVisits({ role }: { role: string }) {
               </thead>
 
               <tbody>
-                {visits.map(visit => {
-                  const member = members.find(m => m.id === visit.member_id)
+                {filteredVisits.map((visit) => {
+                  const member = members.find((m) => m.id === visit.member_id);
                   const status = statusMap[visit.status] || {
-                    label: visit.status || 'Sem status',
-                    color: '#6B7280',
-                    icon: '•',
-                  }
+                    label: visit.status || "Sem status",
+                    color: "#6B7280",
+                    icon: "•",
+                  };
 
                   return (
                     <tr key={visit.id}>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <Avatar name={member?.name || 'Membro'} />
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                          }}
+                        >
+                          <Avatar name={member?.name || "Membro"} />
 
                           <div>
-                            <strong style={{ color: 'var(--text-main)', fontSize: '0.9rem' }}>
-                              {member ? member.name : 'Membro não encontrado'}
+                            <strong
+                              style={{
+                                color: "var(--text-main)",
+                                fontSize: "0.9rem",
+                              }}
+                            >
+                              {member ? member.name : "Membro não encontrado"}
                             </strong>
 
-                            <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
-                              Por: {visit.conducted_by || 'Responsável não informado'}
+                            <div
+                              style={{
+                                color: "var(--text-muted)",
+                                fontSize: "0.72rem",
+                              }}
+                            >
+                              Por:{" "}
+                              {visit.conducted_by ||
+                                "Responsável não informado"}
                             </div>
                           </div>
                         </div>
                       </td>
 
                       <td>
-                        <div style={{ color: 'var(--text-main)', fontSize: '0.86rem', fontWeight: 700 }}>
+                        <div
+                          style={{
+                            color: "var(--text-main)",
+                            fontSize: "0.86rem",
+                            fontWeight: 700,
+                          }}
+                        >
                           {formatDate(visit.visit_date)}
                         </div>
 
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
-                          {visit.visit_time || '--:--'}
+                        <div
+                          style={{
+                            color: "var(--text-muted)",
+                            fontSize: "0.72rem",
+                          }}
+                        >
+                          {visit.visit_time || "--:--"}
                         </div>
                       </td>
 
@@ -256,17 +418,21 @@ export function PastoralVisits({ role }: { role: string }) {
                         <div
                           style={{
                             maxWidth: 220,
-                            color: 'var(--text-muted)',
-                            fontSize: '0.84rem',
+                            color: "var(--text-muted)",
+                            fontSize: "0.84rem",
                             lineHeight: 1.45,
                           }}
                         >
-                          {visit.address || 'Endereço não informado'}
+                          {visit.address || "Endereço não informado"}
                         </div>
                       </td>
 
                       <td>
-                        <StatusBadge label={status.label} color={status.color} icon={status.icon} />
+                        <StatusBadge
+                          label={status.label}
+                          color={status.color}
+                          icon={status.icon}
+                        />
                       </td>
 
                       <td>
@@ -281,40 +447,43 @@ export function PastoralVisits({ role }: { role: string }) {
                         <div
                           style={{
                             maxWidth: 220,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            color: 'var(--text-muted)',
-                            fontSize: '0.82rem',
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            color: "var(--text-muted)",
+                            fontSize: "0.82rem",
                           }}
                           title={visit.notes || visit.result}
                         >
-                          {visit.notes || visit.result || 'Sem observações'}
+                          {visit.notes || visit.result || "Sem observações"}
                         </div>
                       </td>
 
                       <td>
                         <div className="action-btns">
+                          {/* Detalhe: substituiu alert() por Modal */}
                           <button
                             className="btn-icon"
                             title="Ver detalhes"
                             type="button"
-                            onClick={() => alert(buildVisitDetails(visit, member?.name))}
+                            onClick={() => setDetailsVisit(visit)}
                           >
                             👁️
                           </button>
 
+                          {/* Editar: agora implementado */}
                           <button
                             className="btn-icon"
                             title="Editar visita"
                             type="button"
+                            onClick={() => openEditModal(visit)}
                           >
                             ✏️
                           </button>
                         </div>
                       </td>
                     </tr>
-                  )
+                  );
                 })}
               </tbody>
             </table>
@@ -322,449 +491,430 @@ export function PastoralVisits({ role }: { role: string }) {
         )}
       </div>
 
+      {/* ── Modal: criar / editar visita ── */}
       {showModal && (
-        <div
-          className="modal-overlay"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.68)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '1rem',
+        <Modal
+          title={
+            editingVisit ? "Editar Visita Pastoral" : "Agendar Nova Visita"
+          }
+          subtitle="Registre a visita pastoral e informe se será levada Santa Ceia."
+          onClose={() => {
+            setShowModal(false);
+            resetForm();
           }}
+          maxWidth={560}
         >
-          <div
-            className="modern-card"
-            style={{
-              width: 560,
-              maxWidth: '100%',
-              maxHeight: '92vh',
-              overflowY: 'auto',
-              margin: 0,
-              boxShadow: '0 30px 90px rgba(0,0,0,0.55)',
-            }}
+          <form
+            onSubmit={handleSave}
+            style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
           >
-            <div className="modern-card-header">
-              <div>
-                <h2 className="modern-card-title">Agendar Nova Visita</h2>
-
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: 4 }}>
-                  Registre a visita pastoral e informe se será levada Santa Ceia.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                className="btn-icon"
-                onClick={() => setShowModal(false)}
+            <label>
+              Membro
+              <select
+                value={formData.member_id}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    member_id: parseInt(e.currentTarget.value),
+                  })
+                }
+                required
               >
-                ✕
-              </button>
-            </div>
+                <option value="">Selecione...</option>
+                {members.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-            <form
-              onSubmit={handleSave}
+            <label>
+              Endereço da visita
+              <input
+                type="text"
+                placeholder="Informe o endereço completo"
+                value={formData.address}
+                onInput={(e) =>
+                  setFormData({ ...formData, address: e.currentTarget.value })
+                }
+                required
+              />
+            </label>
+
+            <div
               style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '1rem',
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "1rem",
               }}
             >
               <label>
-                Membro
-                <select
-                  value={formData.member_id}
-                  onChange={e =>
+                Data
+                <input
+                  type="date"
+                  value={formData.visit_date}
+                  onInput={(e) =>
                     setFormData({
                       ...formData,
-                      member_id: parseInt(e.currentTarget.value),
+                      visit_date: e.currentTarget.value,
                     })
                   }
                   required
-                >
-                  <option value="">Selecione...</option>
-                  {members.map(member => (
-                    <option key={member.id} value={member.id}>
-                      {member.name}
-                    </option>
-                  ))}
-                </select>
+                />
               </label>
 
               <label>
-                Endereço da visita
+                Horário
                 <input
-                  type="text"
-                  placeholder="Informe o endereço completo"
-                  value={formData.address}
-                  onInput={e =>
-                    setFormData({ ...formData, address: e.currentTarget.value })
+                  type="time"
+                  value={formData.visit_time}
+                  onInput={(e) =>
+                    setFormData({
+                      ...formData,
+                      visit_time: e.currentTarget.value,
+                    })
                   }
                   required
                 />
               </label>
+            </div>
 
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '1rem',
+            <label>
+              Responsável / Realizado por
+              <input
+                type="text"
+                placeholder="Ex: Pr. João ou Obreira Maria"
+                value={formData.conducted_by}
+                onInput={(e) =>
+                  setFormData({
+                    ...formData,
+                    conducted_by: e.currentTarget.value,
+                  })
+                }
+              />
+            </label>
+
+            <label>
+              Status
+              <select
+                value={formData.status}
+                onChange={(e) =>
+                  setFormData({ ...formData, status: e.currentTarget.value })
+                }
+              >
+                <option value="Agendada">Agendada</option>
+                <option value="Realizada">Realizada</option>
+                <option value="Pendente">Pendente</option>
+                <option value="Reagendada">Reagendada</option>
+                <option value="Cancelada">Cancelada</option>
+              </select>
+            </label>
+
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.75rem",
+                cursor: "pointer",
+                padding: "0.9rem 1rem",
+                borderRadius: 16,
+                background: "rgba(245,158,11,0.08)",
+                border: "1px solid rgba(245,158,11,0.22)",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={formData.carried_holy_communion}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    carried_holy_communion: e.currentTarget.checked,
+                  })
+                }
+                style={{ width: 18, height: 18 }}
+              />
+
+              <span style={{ color: "#FCD34D", fontWeight: 800 }}>
+                Levar Santa Ceia nesta visita?
+              </span>
+            </label>
+
+            <label>
+              Observações Pastorais
+              <textarea
+                placeholder="Descreva a necessidade, pedido de oração ou situação pastoral..."
+                value={formData.notes}
+                onInput={(e) =>
+                  setFormData({ ...formData, notes: e.currentTarget.value })
+                }
+                style={{ minHeight: 110, resize: "vertical" }}
+              />
+            </label>
+
+            <label>
+              Resultado da visita
+              <textarea
+                placeholder="Preencha após a visita ser realizada..."
+                value={formData.result}
+                onInput={(e) =>
+                  setFormData({ ...formData, result: e.currentTarget.value })
+                }
+                style={{ minHeight: 90, resize: "vertical" }}
+              />
+            </label>
+
+            <div className="form-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setShowModal(false);
+                  resetForm();
                 }}
               >
-                <label>
-                  Data
-                  <input
-                    type="date"
-                    value={formData.visit_date}
-                    onInput={e =>
-                      setFormData({ ...formData, visit_date: e.currentTarget.value })
-                    }
-                    required
-                  />
-                </label>
+                Cancelar
+              </button>
 
-                <label>
-                  Horário
-                  <input
-                    type="time"
-                    value={formData.visit_time}
-                    onInput={e =>
-                      setFormData({ ...formData, visit_time: e.currentTarget.value })
-                    }
-                    required
-                  />
-                </label>
-              </div>
+              <button type="submit" className="btn-primary" disabled={saving}>
+                {saving
+                  ? "Salvando..."
+                  : editingVisit
+                    ? "Atualizar Visita"
+                    : "Agendar Visita"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
-              <label>
-                Responsável / Realizado por
-                <input
-                  type="text"
-                  placeholder="Ex: Pr. João ou Obreira Maria"
-                  value={formData.conducted_by}
-                  onInput={e =>
-                    setFormData({ ...formData, conducted_by: e.currentTarget.value })
-                  }
-                />
-              </label>
-
-              <label>
-                Status
-                <select
-                  value={formData.status}
-                  onChange={e =>
-                    setFormData({ ...formData, status: e.currentTarget.value })
-                  }
-                >
-                  <option value="Agendada">Agendada</option>
-                  <option value="Realizada">Realizada</option>
-                  <option value="Pendente">Pendente</option>
-                  <option value="Reagendada">Reagendada</option>
-                  <option value="Cancelada">Cancelada</option>
-                </select>
-              </label>
-
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  cursor: 'pointer',
-                  padding: '0.9rem 1rem',
-                  borderRadius: 16,
-                  background: 'rgba(245,158,11,0.08)',
-                  border: '1px solid rgba(245,158,11,0.22)',
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={formData.carried_holy_communion}
-                  onChange={e =>
-                    setFormData({
-                      ...formData,
-                      carried_holy_communion: e.currentTarget.checked,
-                    })
-                  }
-                  style={{ width: 18, height: 18 }}
-                />
-
-                <span style={{ color: '#FCD34D', fontWeight: 800 }}>
-                  Levar Santa Ceia nesta visita?
-                </span>
-              </label>
-
-              <label>
-                Observações Pastorais
-                <textarea
-                  placeholder="Descreva a necessidade, pedido de oração ou situação pastoral..."
-                  value={formData.notes}
-                  onInput={e =>
-                    setFormData({ ...formData, notes: e.currentTarget.value })
-                  }
-                  style={{ minHeight: 110, resize: 'vertical' }}
-                />
-              </label>
-
-              <label>
-                Resultado da visita
-                <textarea
-                  placeholder="Preencha após a visita ser realizada..."
-                  value={formData.result}
-                  onInput={e =>
-                    setFormData({ ...formData, result: e.currentTarget.value })
-                  }
-                  style={{ minHeight: 90, resize: 'vertical' }}
-                />
-              </label>
-
-              <div className="form-actions">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setShowModal(false)}
-                >
-                  Cancelar
-                </button>
-
-                <button type="submit" className="btn-primary" disabled={saving}>
-                  {saving ? 'Salvando...' : 'Agendar Visita'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* ── Modal: detalhes da visita (substitui alert()) ── */}
+      {detailsVisit && (
+        <VisitDetailsModal
+          visit={detailsVisit}
+          memberName={
+            members.find((m) => m.id === detailsVisit.member_id)?.name
+          }
+          onClose={() => setDetailsVisit(null)}
+          onEdit={() => {
+            setDetailsVisit(null);
+            openEditModal(detailsVisit);
+          }}
+        />
       )}
     </div>
-  )
+  );
 }
 
-function SummaryCard({
-  title,
-  value,
-  color,
-  icon,
-}: {
-  title: string
-  value: number | string
-  color: string
-  icon: string
-}) {
-  return (
-    <div className="stat-card" style={{ position: 'relative', overflow: 'hidden' }}>
-      <div
-        style={{
-          position: 'absolute',
-          right: -20,
-          top: -20,
-          width: 100,
-          height: 100,
-          borderRadius: '50%',
-          background: color,
-          opacity: 0.12,
-          filter: 'blur(22px)',
-        }}
-      />
+// ─── Sub-componentes ─────────────────────────────────────────────────────────
 
-      <div
-        style={{
-          width: 50,
-          height: 50,
-          borderRadius: 16,
-          background: `${color}20`,
-          border: `1px solid ${color}55`,
-          color,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '1.3rem',
-          flexShrink: 0,
-        }}
-      >
-        {icon}
-      </div>
-
-      <div>
-        <h3
-          style={{
-            margin: 0,
-            fontSize: '1.65rem',
-            fontWeight: 900,
-            color: 'var(--text-main)',
-          }}
-        >
-          {value}
-        </h3>
-
-        <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.78rem' }}>
-          {title}
-        </p>
-      </div>
-    </div>
-  )
-}
-
+/** Avatar com iniciais geradas a partir do nome */
 function Avatar({ name }: { name: string }) {
-  const initials = (name || 'MB')
-    .split(' ')
+  const initials = (name || "MB")
+    .split(" ")
     .slice(0, 2)
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
 
   return (
     <div
       style={{
         width: 42,
         height: 42,
-        borderRadius: '50%',
-        background: 'linear-gradient(135deg,#10B981,#2563EB)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: '#fff',
+        borderRadius: "50%",
+        background: "linear-gradient(135deg,#10B981,#2563EB)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "#fff",
         fontWeight: 900,
-        fontSize: '0.8rem',
-        boxShadow: '0 8px 18px rgba(0,0,0,0.25)',
+        fontSize: "0.8rem",
+        boxShadow: "0 8px 18px rgba(0,0,0,0.25)",
         flexShrink: 0,
       }}
     >
       {initials}
     </div>
-  )
+  );
 }
 
-function StatusBadge({
-  label,
-  color,
-  icon,
+/** Modal de detalhes da visita (substitui window.alert()) */
+function VisitDetailsModal({
+  visit,
+  memberName,
+  onClose,
+  onEdit,
 }: {
-  label: string
-  color: string
-  icon: string
+  visit: PastoralVisit;
+  memberName?: string;
+  onClose: () => void;
+  onEdit: () => void;
 }) {
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 6,
-        padding: '0.25rem 0.65rem',
-        borderRadius: 999,
-        background: `${color}20`,
-        border: `1px solid ${color}55`,
-        color,
-        fontSize: '0.72rem',
-        fontWeight: 900,
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {icon} {label}
-    </span>
-  )
-}
+  const status = statusMap[visit.status] || {
+    label: visit.status,
+    color: "#6B7280",
+    icon: "•",
+  };
 
-function LoadingState() {
-  return (
-    <div style={{ display: 'grid', gap: 12 }}>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div
-          key={i}
-          className="skeleton"
-          style={{ height: 62, borderRadius: 16 }}
-        />
-      ))}
-    </div>
-  )
-}
-
-function EmptyState({ onCreate }: { onCreate: () => void }) {
-  return (
+  const Row = ({ label, value }: { label: string; value: string }) => (
     <div
       style={{
-        textAlign: 'center',
-        padding: '3rem 1rem',
-        borderRadius: 20,
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px dashed rgba(255,255,255,0.12)',
+        display: "grid",
+        gridTemplateColumns: "140px 1fr",
+        gap: "0.5rem",
+        padding: "0.6rem 0",
+        borderBottom: "1px solid var(--border)",
       }}
     >
-      <div style={{ fontSize: '2.8rem', marginBottom: '1rem' }}>🏠</div>
-
-      <h3 style={{ margin: 0, color: 'var(--text-main)' }}>
-        Nenhuma visita pastoral agendada
-      </h3>
-
-      <p
+      <span
         style={{
-          color: 'var(--text-muted)',
-          fontSize: '0.9rem',
-          margin: '0.5rem auto 1.4rem',
-          maxWidth: 480,
+          color: "var(--text-muted)",
+          fontSize: "0.8rem",
+          fontWeight: 800,
         }}
       >
-        Agende visitas para membros, enfermos, afastados ou famílias que precisam
-        de cuidado pastoral e acompanhamento espiritual.
-      </p>
-
-      <button className="btn-primary" onClick={onCreate}>
-        Agendar primeira visita
-      </button>
+        {label}
+      </span>
+      <span style={{ color: "var(--text-main)", fontSize: "0.88rem" }}>
+        {value || "-"}
+      </span>
     </div>
-  )
-}
-
-function Alert({
-  type,
-  message,
-}: {
-  type: 'success' | 'error'
-  message: string
-}) {
-  const isSuccess = type === 'success'
+  );
 
   return (
-    <div
-      style={{
-        padding: '0.9rem 1rem',
-        borderRadius: 16,
-        background: isSuccess ? 'rgba(16,185,129,0.14)' : 'rgba(239,68,68,0.14)',
-        border: isSuccess
-          ? '1px solid rgba(16,185,129,0.3)'
-          : '1px solid rgba(239,68,68,0.3)',
-        color: isSuccess ? '#34D399' : '#F87171',
-        fontWeight: 800,
-        fontSize: '0.85rem',
-        marginBottom: '1rem',
-      }}
+    <Modal
+      title="📋 Detalhes da Visita"
+      subtitle={memberName ? `Visita para: ${memberName}` : undefined}
+      onClose={onClose}
+      maxWidth={520}
     >
-      {isSuccess ? '✅' : '⚠️'} {message}
-    </div>
-  )
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        <Row label="Membro" value={memberName || "Não identificado"} />
+        <Row label="Data" value={formatDate(visit.visit_date)} />
+        <Row label="Horário" value={visit.visit_time || "--:--"} />
+        <Row label="Endereço" value={visit.address} />
+        <Row label="Responsável" value={visit.conducted_by} />
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "140px 1fr",
+            gap: "0.5rem",
+            padding: "0.6rem 0",
+            borderBottom: "1px solid var(--border)",
+          }}
+        >
+          <span
+            style={{
+              color: "var(--text-muted)",
+              fontSize: "0.8rem",
+              fontWeight: 800,
+            }}
+          >
+            Status
+          </span>
+          <StatusBadge
+            label={status.label}
+            color={status.color}
+            icon={status.icon}
+          />
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "140px 1fr",
+            gap: "0.5rem",
+            padding: "0.6rem 0",
+            borderBottom: "1px solid var(--border)",
+          }}
+        >
+          <span
+            style={{
+              color: "var(--text-muted)",
+              fontSize: "0.8rem",
+              fontWeight: 800,
+            }}
+          >
+            Santa Ceia
+          </span>
+          {visit.carried_holy_communion ? (
+            <StatusBadge label="Sim" color="#F59E0B" icon="🍇" />
+          ) : (
+            <StatusBadge label="Não" color="#6B7280" icon="—" />
+          )}
+        </div>
+
+        {visit.notes && (
+          <div style={{ padding: "0.75rem 0" }}>
+            <p
+              style={{
+                color: "var(--text-muted)",
+                fontSize: "0.8rem",
+                fontWeight: 800,
+                margin: "0 0 0.35rem",
+              }}
+            >
+              Observações
+            </p>
+            <p
+              style={{
+                color: "var(--text-main)",
+                fontSize: "0.88rem",
+                lineHeight: 1.55,
+                margin: 0,
+              }}
+            >
+              {visit.notes}
+            </p>
+          </div>
+        )}
+
+        {visit.result && (
+          <div style={{ padding: "0.75rem 0" }}>
+            <p
+              style={{
+                color: "var(--text-muted)",
+                fontSize: "0.8rem",
+                fontWeight: 800,
+                margin: "0 0 0.35rem",
+              }}
+            >
+              Resultado
+            </p>
+            <p
+              style={{
+                color: "var(--text-main)",
+                fontSize: "0.88rem",
+                lineHeight: 1.55,
+                margin: 0,
+              }}
+            >
+              {visit.result}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="form-actions" style={{ marginTop: "1rem" }}>
+        <button className="btn-secondary" onClick={onClose}>
+          Fechar
+        </button>
+
+        <button className="btn-primary" onClick={onEdit}>
+          ✏️ Editar Visita
+        </button>
+      </div>
+    </Modal>
+  );
 }
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatDate(date: string) {
-  if (!date) return '-'
-
-  const parsed = new Date(`${date}T00:00:00`)
-
-  if (Number.isNaN(parsed.getTime())) return date
-
-  return parsed.toLocaleDateString('pt-BR')
-}
-
-function buildVisitDetails(visit: PastoralVisit, memberName?: string) {
-  return [
-    `Membro: ${memberName || 'Não encontrado'}`,
-    `Data: ${formatDate(visit.visit_date)}`,
-    `Horário: ${visit.visit_time || '-'}`,
-    `Endereço: ${visit.address || '-'}`,
-    `Responsável: ${visit.conducted_by || '-'}`,
-    `Status: ${visit.status || '-'}`,
-    `Santa Ceia: ${visit.carried_holy_communion ? 'Sim' : 'Não'}`,
-    `Observações: ${visit.notes || '-'}`,
-    `Resultado: ${visit.result || '-'}`,
-  ].join('\n')
+  if (!date) return "-";
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return parsed.toLocaleDateString("pt-BR");
 }

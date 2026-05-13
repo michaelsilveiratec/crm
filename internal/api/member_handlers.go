@@ -1,75 +1,140 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/user/crm_eclesia/internal/db"
 )
 
+// CreateMemberHandler — POST /api/pastor/members
 func CreateMemberHandler(c *gin.Context) {
-	churchID, _ := c.Get("church_id")
-	userID, _ := c.Get("user_id")
+	churchID, userID, ok := GetChurchAndUser(c)
+	if !ok {
+		return
+	}
 
 	var m db.Member
-	if err := c.ShouldBindJSON(&m); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Dados inválidos"})
+	if !BindJSON(c, &m) {
 		return
 	}
 
-	// Validação simples da foto em base64.
-	// O frontend já limita em 2MB, mas aqui protegemos também o backend.
 	if len(m.PhotoURL) > 3_000_000 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "A foto enviada é muito grande. Envie uma imagem menor."})
+		JSONError(c, http.StatusBadRequest, "A foto enviada é muito grande. Envie uma imagem menor.")
 		return
 	}
 
-	m.ChurchID = churchID.(int)
-	m.CreatedBy = userID.(int)
+	m.ChurchID = churchID
+	m.CreatedBy = userID
 
 	if err := db.CreateMember(&m); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao criar membro"})
+		JSONError(c, http.StatusInternalServerError, "Erro ao criar membro.")
 		return
 	}
 
-	db.SaveActivity(
-		churchID.(int),
-		userID.(int),
-		"Cadastro de Membro",
-		"Cadastrou o novo membro/visitante: "+m.Name,
-	)
-
+	db.SaveActivity(churchID, userID, "Cadastro de Membro", "Cadastrou: "+m.Name)
 	c.JSON(http.StatusCreated, m)
 }
 
+// GetMembersHandler — GET /api/pastor/members
 func GetMembersHandler(c *gin.Context) {
-	churchID, _ := c.Get("church_id")
-
-	members, err := db.GetAllMembers(churchID.(int))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar membros"})
+	churchID, ok := GetChurchID(c)
+	if !ok {
 		return
 	}
 
-	if members == nil {
-		members = []db.Member{}
+	members, err := db.GetAllMembers(churchID)
+	if err != nil {
+		JSONError(c, http.StatusInternalServerError, "Erro ao buscar membros.")
+		return
 	}
 
-	c.JSON(http.StatusOK, members)
+	c.JSON(http.StatusOK, EnsureSlice(members))
 }
 
-func GetBirthdaysHandler(c *gin.Context) {
-	churchID, _ := c.Get("church_id")
-
-	members, err := db.GetAllMembers(churchID.(int))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar aniversariantes"})
+// UpdateMemberHandler — PUT /api/pastor/members/:id
+func UpdateMemberHandler(c *gin.Context) {
+	churchID, userID, ok := GetChurchAndUser(c)
+	if !ok {
 		return
 	}
 
-	if members == nil {
-		members = []db.Member{}
+	memberID, ok := ParseIDParam(c)
+	if !ok {
+		return
 	}
 
-	c.JSON(http.StatusOK, members)
+	var m db.Member
+	if !BindJSON(c, &m) {
+		return
+	}
+
+	if m.Name == "" {
+		JSONError(c, http.StatusBadRequest, "O nome do membro é obrigatório.")
+		return
+	}
+
+	if len(m.PhotoURL) > 3_000_000 {
+		JSONError(c, http.StatusBadRequest, "A foto enviada é muito grande. Envie uma imagem menor.")
+		return
+	}
+
+	m.ID = memberID
+	m.ChurchID = churchID
+
+	if err := db.UpdateMember(&m); err != nil {
+		JSONError(c, http.StatusInternalServerError, "Erro ao atualizar membro.")
+		return
+	}
+
+	db.SaveActivity(churchID, userID, "Edição de Membro", "Editou: "+m.Name)
+	JSONSuccess(c, "Membro atualizado com sucesso.")
+}
+
+// DeleteMemberHandler — DELETE /api/pastor/members/:id
+func DeleteMemberHandler(c *gin.Context) {
+	churchID, userID, ok := GetChurchAndUser(c)
+	if !ok {
+		return
+	}
+
+	memberID, ok := ParseIDParam(c)
+	if !ok {
+		return
+	}
+
+	if err := db.DeleteMember(memberID, churchID); err != nil {
+		JSONError(c, http.StatusInternalServerError, "Erro ao excluir membro.")
+		return
+	}
+
+	db.SaveActivity(churchID, userID, "Exclusão de Membro", fmt.Sprintf("Excluiu membro ID %d", memberID))
+	JSONSuccess(c, "Membro excluído com sucesso.")
+}
+
+// GetBirthdaysHandler — GET /api/pastor/birthdays
+func GetBirthdaysHandler(c *gin.Context) {
+	churchID, ok := GetChurchID(c)
+	if !ok {
+		return
+	}
+
+	all, err := db.GetAllMembers(churchID)
+	if err != nil {
+		JSONError(c, http.StatusInternalServerError, "Erro ao buscar aniversariantes.")
+		return
+	}
+
+	// Filtra pelo mês atual — BirthDate formato "YYYY-MM-DD"
+	currentMonth := fmt.Sprintf("%02d", int(time.Now().Month()))
+	var birthdays []db.Member
+	for _, m := range all {
+		if len(m.BirthDate) >= 7 && m.BirthDate[5:7] == currentMonth {
+			birthdays = append(birthdays, m)
+		}
+	}
+
+	c.JSON(http.StatusOK, EnsureSlice(birthdays))
 }

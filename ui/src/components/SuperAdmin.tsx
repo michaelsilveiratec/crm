@@ -1,156 +1,230 @@
-import { useState, useEffect } from 'preact/hooks'
+import { useState, useEffect, useMemo } from "preact/hooks";
+import {
+  SummaryCard,
+  StatusBadge,
+  LoadingState,
+  EmptyState,
+  Alert,
+  Avatar,
+  PageBadge,
+  ConfirmDialog,
+} from "./shared";
+import { useNotification } from "../hooks/useNotification";
+
+// ─── Tipos ───────────────────────────────────────────────────────────────────
 
 interface Church {
-  id: number
-  name: string
-  slug: string
-  email: string
-  phone: string
-  plan: string
-  status: string
-  created_at: string
+  id: number;
+  name: string;
+  slug: string;
+  email: string;
+  phone: string;
+  plan: string;
+  status: string;
+  created_at: string;
 }
 
 interface Stats {
-  total_churches: number
-  total_users: number
-  total_members: number
+  total_churches: number;
+  total_users: number;
+  total_members: number;
 }
+
+interface ConfirmToggle {
+  church: Church;
+  newStatus: "active" | "blocked";
+}
+
+// ─── Mapa de planos ───────────────────────────────────────────────────────────
 
 const planMap: Record<string, { label: string; color: string }> = {
-  essencial: { label: 'Essencial', color: '#2563EB' },
-  pastoreio: { label: 'Pastoreio', color: '#8B5CF6' },
-  avivamento: { label: 'Avivamento', color: '#F59E0B' },
-  enterprise: { label: 'Enterprise', color: '#10B981' },
-}
+  essencial: { label: "Essencial", color: "#2563EB" },
+  pastoreio: { label: "Pastoreio", color: "#8B5CF6" },
+  avivamento: { label: "Avivamento", color: "#F59E0B" },
+  enterprise: { label: "Enterprise", color: "#10B981" },
+};
+
+// ─── Componente principal ─────────────────────────────────────────────────────
 
 export function SuperAdmin() {
-  const [churches, setChurches] = useState<Church[]>([])
-  const [stats, setStats] = useState<Stats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [updatingId, setUpdatingId] = useState<number | null>(null)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [churches, setChurches] = useState<Church[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const { success, error, showSuccess, showError, clearSuccess, clearError } =
+    useNotification();
+
+  // ConfirmDialog para bloqueio/ativação
+  const [confirmToggle, setConfirmToggle] = useState<ConfirmToggle | null>(
+    null,
+  );
+
+  // ─── Fetch ────────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    fetchData();
+  }, []);
 
-  const fetchData = async () => {
-    setLoading(true)
-    setError('')
+  const fetchData = async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    clearError();
 
     try {
       const [chResp, stResp] = await Promise.all([
-        fetch('/api/superadmin/churches'),
-        fetch('/api/superadmin/stats'),
-      ])
+        fetch("/api/superadmin/churches"),
+        fetch("/api/superadmin/stats"),
+      ]);
 
       if (!chResp.ok || !stResp.ok) {
-        throw new Error('Erro ao carregar dados do Super Admin.')
+        throw new Error("Erro ao carregar dados do Super Admin.");
       }
 
-      setChurches(await chResp.json())
-      setStats(await stResp.json())
+      setChurches(await chResp.json());
+      setStats(await stResp.json());
     } catch (err: any) {
-      setError(err.message || 'Não foi possível carregar os dados.')
+      showError(err.message || "Não foi possível carregar os dados.");
     } finally {
-      setLoading(false)
+      setLoading(false);
+      setRefreshing(false);
     }
-  }
+  };
 
-  const toggleStatus = async (id: number, currentStatus: string) => {
-    const newStatus = currentStatus === 'active' ? 'blocked' : 'active'
+  // ─── Toggle de status (com confirmação) ───────────────────────────────────
 
-    const confirmMsg =
-      newStatus === 'blocked'
-        ? 'Deseja realmente bloquear esta igreja? O pastor e os obreiros perderão o acesso.'
-        : 'Deseja realmente ativar esta igreja novamente?'
+  const requestToggleStatus = (church: Church) => {
+    const newStatus = church.status === "active" ? "blocked" : "active";
+    setConfirmToggle({ church, newStatus: newStatus as "active" | "blocked" });
+  };
 
-    if (!confirm(confirmMsg)) return
+  const confirmToggleStatus = async () => {
+    if (!confirmToggle) return;
+    const { church, newStatus } = confirmToggle;
+    setConfirmToggle(null);
 
-    setUpdatingId(id)
-    setError('')
-    setSuccess('')
+    setUpdatingId(church.id);
+    clearError();
+    clearSuccess();
 
     try {
-      const resp = await fetch(`/api/superadmin/churches/${id}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+      const resp = await fetch(`/api/superadmin/churches/${church.id}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
-      })
+      });
 
-      if (!resp.ok) {
-        throw new Error('Erro ao atualizar status da igreja.')
-      }
+      if (!resp.ok) throw new Error("Erro ao atualizar status da igreja.");
 
-      setSuccess(
-        newStatus === 'blocked'
-          ? 'Igreja bloqueada com sucesso.'
-          : 'Igreja ativada com sucesso.'
-      )
-
-      await fetchData()
-      setTimeout(() => setSuccess(''), 3000)
+      showSuccess(
+        newStatus === "blocked"
+          ? "Igreja bloqueada com sucesso."
+          : "Igreja ativada com sucesso.",
+      );
+      await fetchData();
     } catch (err: any) {
-      setError(err.message || 'Não foi possível atualizar o status.')
+      showError(err.message || "Não foi possível atualizar o status.");
     } finally {
-      setUpdatingId(null)
+      setUpdatingId(null);
     }
-  }
+  };
 
-  const activeChurches = churches.filter(ch => ch.status === 'active').length
-  const blockedChurches = churches.filter(ch => ch.status !== 'active').length
+  // ─── Cálculos de resumo ───────────────────────────────────────────────────
+
+  const activeChurches = churches.filter((ch) => ch.status === "active").length;
+  const blockedChurches = churches.filter(
+    (ch) => ch.status !== "active",
+  ).length;
   const monthlyEstimate = churches.reduce((total, ch) => {
-    const plan = (ch.plan || '').toLowerCase()
-    if (plan === 'essencial') return total + 49
-    if (plan === 'pastoreio') return total + 97
-    if (plan === 'avivamento') return total + 197
-    if (plan === 'enterprise') return total + 297
-    return total
-  }, 0)
+    const plan = (ch.plan || "").toLowerCase();
+    if (plan === "essencial") return total + 49;
+    if (plan === "pastoreio") return total + 97;
+    if (plan === "avivamento") return total + 197;
+    if (plan === "enterprise") return total + 297;
+    return total;
+  }, 0);
+
+  // ─── Busca por nome ───────────────────────────────────────────────────────
+
+  const filteredChurches = useMemo(() => {
+    if (!searchQuery.trim()) return churches;
+    const q = searchQuery.toLowerCase().trim();
+    return churches.filter(
+      (ch) =>
+        (ch.name || "").toLowerCase().includes(q) ||
+        (ch.slug || "").toLowerCase().includes(q) ||
+        (ch.email || "").toLowerCase().includes(q),
+    );
+  }, [churches, searchQuery]);
+
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div className="main-content">
+      {/* Header */}
       <div className="page-header">
         <div>
-          <span
-            style={{
-              display: 'inline-flex',
-              padding: '0.35rem 0.75rem',
-              borderRadius: 999,
-              background: 'rgba(245,158,11,0.14)',
-              border: '1px solid rgba(245,158,11,0.35)',
-              color: '#FCD34D',
-              fontSize: '0.75rem',
-              fontWeight: 800,
-              marginBottom: '0.75rem',
-            }}
-          >
-            Plataforma SaaS Global
-          </span>
-
+          <PageBadge color="yellow">Plataforma SaaS Global</PageBadge>
           <h1>👑 Painel Super Admin</h1>
-
           <p>
             Gerencie igrejas, assinaturas, bloqueios, usuários e crescimento da
             plataforma CRM Bom Samaritano.
           </p>
         </div>
 
-        <button className="btn-help" onClick={fetchData}>
-          Atualizar
+        <button
+          className="btn-help"
+          onClick={() => fetchData(true)}
+          disabled={refreshing}
+          style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}
+        >
+          {refreshing ? (
+            <>
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 13,
+                  height: 13,
+                  border: "2px solid currentColor",
+                  borderTopColor: "transparent",
+                  borderRadius: "50%",
+                  animation: "spin 0.7s linear infinite",
+                }}
+              />
+              Atualizando...
+            </>
+          ) : (
+            "↻ Atualizar"
+          )}
         </button>
       </div>
 
-      {success && <Alert type="success" message={success} />}
-      {error && <Alert type="error" message={error} />}
+      {/* Notificações */}
+      {success && (
+        <Alert
+          type="success"
+          message={success}
+          onClose={clearSuccess}
+          autoDismiss={3500}
+        />
+      )}
+      {error && (
+        <Alert
+          type="error"
+          message={error}
+          onClose={clearError}
+          autoDismiss={4000}
+        />
+      )}
 
+      {/* Cards de resumo */}
       <div
         className="stats-grid"
         style={{
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          marginBottom: '1.5rem',
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          marginBottom: "1.5rem",
         }}
       >
         <SummaryCard
@@ -159,51 +233,47 @@ export function SuperAdmin() {
           color="#8B5CF6"
           icon="⛪"
         />
-
         <SummaryCard
           title="Igrejas Ativas"
           value={activeChurches}
           color="#10B981"
           icon="✅"
         />
-
         <SummaryCard
           title="Igrejas Bloqueadas"
           value={blockedChurches}
           color="#EF4444"
           icon="🔒"
         />
-
         <SummaryCard
           title="Usuários Totais"
           value={stats?.total_users || 0}
           color="#2563EB"
           icon="👥"
         />
-
         <SummaryCard
           title="Membros no SaaS"
           value={stats?.total_members || 0}
           color="#F59E0B"
           icon="💎"
         />
-
         <SummaryCard
           title="Receita Estimada"
-          value={`R$ ${monthlyEstimate.toLocaleString('pt-BR')}`}
+          value={`R$ ${monthlyEstimate.toLocaleString("pt-BR")}`}
           color="#10B981"
           icon="💰"
         />
       </div>
 
+      {/* Tabela de igrejas */}
       <div className="modern-card">
         <div className="modern-card-header">
           <div>
             <h2 className="modern-card-title">Igrejas e Assinaturas</h2>
             <p
               style={{
-                color: 'var(--text-muted)',
-                fontSize: '0.8rem',
+                color: "var(--text-muted)",
+                fontSize: "0.8rem",
                 marginTop: 4,
               }}
             >
@@ -211,14 +281,69 @@ export function SuperAdmin() {
               plataforma.
             </p>
           </div>
+
+          {/* Busca por nome */}
+          {!loading && churches.length > 0 && (
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              <input
+                type="text"
+                placeholder="🔍 Buscar igreja..."
+                value={searchQuery}
+                onInput={(e) => setSearchQuery(e.currentTarget.value)}
+                style={{
+                  padding: "0.45rem 0.9rem",
+                  borderRadius: 10,
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  color: "var(--text-main)",
+                  fontSize: "0.85rem",
+                  width: 220,
+                  outline: "none",
+                }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  style={{
+                    position: "absolute",
+                    right: 8,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    color: "var(--text-muted)",
+                    cursor: "pointer",
+                    fontSize: "0.85rem",
+                    lineHeight: 1,
+                    padding: 0,
+                  }}
+                  aria-label="Limpar busca"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {loading ? (
-          <LoadingState />
+          <LoadingState rows={6} height={62} />
         ) : churches.length === 0 ? (
-          <EmptyState />
+          <EmptyState
+            icon="⛪"
+            title="Nenhuma igreja cadastrada"
+            description="Quando novas igrejas criarem conta na plataforma, elas aparecerão nesta área para controle de planos, acessos e bloqueios."
+          />
+        ) : filteredChurches.length === 0 ? (
+          <EmptyState
+            icon="🔍"
+            title="Nenhuma igreja encontrada"
+            description={`Não há igrejas correspondendo a "${searchQuery}".`}
+            actionLabel="Limpar busca"
+            onAction={() => setSearchQuery("")}
+          />
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <div style={{ overflowX: "auto" }}>
             <table className="modern-table">
               <thead>
                 <tr>
@@ -233,34 +358,39 @@ export function SuperAdmin() {
               </thead>
 
               <tbody>
-                {churches.map(church => {
-                  const plan = planMap[(church.plan || '').toLowerCase()] || {
-                    label: church.plan || 'Sem plano',
-                    color: '#6B7280',
-                  }
-
-                  const isActive = church.status === 'active'
+                {filteredChurches.map((church) => {
+                  const plan = planMap[(church.plan || "").toLowerCase()] || {
+                    label: church.plan || "Sem plano",
+                    color: "#6B7280",
+                  };
+                  const isActive = church.status === "active";
+                  const isUpdating = updatingId === church.id;
 
                   return (
                     <tr key={church.id}>
+                      {/* Nome da igreja */}
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                          }}
+                        >
                           <Avatar name={church.name} />
-
                           <div>
                             <strong
                               style={{
-                                color: 'var(--text-main)',
-                                fontSize: '0.9rem',
+                                color: "var(--text-main)",
+                                fontSize: "0.9rem",
                               }}
                             >
-                              {church.name || 'Igreja sem nome'}
+                              {church.name || "Igreja sem nome"}
                             </strong>
-
                             <div
                               style={{
-                                color: 'var(--text-muted)',
-                                fontSize: '0.72rem',
+                                color: "var(--text-muted)",
+                                fontSize: "0.72rem",
                               }}
                             >
                               ID #{church.id}
@@ -269,289 +399,186 @@ export function SuperAdmin() {
                         </div>
                       </td>
 
+                      {/* Slug */}
                       <td>
                         <code
                           style={{
-                            fontSize: '0.78rem',
-                            color: '#C4B5FD',
-                            background: 'rgba(124,58,237,0.12)',
-                            padding: '0.25rem 0.55rem',
+                            fontSize: "0.78rem",
+                            color: "#C4B5FD",
+                            background: "rgba(124,58,237,0.12)",
+                            padding: "0.25rem 0.55rem",
                             borderRadius: 8,
-                            border: '1px solid rgba(124,58,237,0.25)',
+                            border: "1px solid rgba(124,58,237,0.25)",
                           }}
                         >
                           {church.slug}
                         </code>
                       </td>
 
+                      {/* Contato */}
                       <td>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <span style={{ color: 'var(--text-main)', fontSize: '0.82rem' }}>
-                            {church.email || 'Sem e-mail'}
+                        <div
+                          style={{ display: "flex", flexDirection: "column" }}
+                        >
+                          <span
+                            style={{
+                              color: "var(--text-main)",
+                              fontSize: "0.82rem",
+                            }}
+                          >
+                            {church.email || "Sem e-mail"}
                           </span>
-
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
-                            {church.phone || 'Sem telefone'}
+                          <span
+                            style={{
+                              color: "var(--text-muted)",
+                              fontSize: "0.72rem",
+                            }}
+                          >
+                            {church.phone || "Sem telefone"}
                           </span>
                         </div>
                       </td>
 
+                      {/* Plano */}
                       <td>
-                        <StatusBadge label={plan.label} color={plan.color} icon="💼" />
+                        <StatusBadge
+                          label={plan.label}
+                          color={plan.color}
+                          icon="💼"
+                        />
                       </td>
 
+                      {/* Status */}
                       <td>
                         {isActive ? (
-                          <StatusBadge label="Ativa" color="#10B981" icon="✅" />
+                          <StatusBadge
+                            label="Ativa"
+                            color="#10B981"
+                            icon="✅"
+                          />
                         ) : (
-                          <StatusBadge label="Bloqueada" color="#EF4444" icon="🔒" />
+                          <StatusBadge
+                            label="Bloqueada"
+                            color="#EF4444"
+                            icon="🔒"
+                          />
                         )}
                       </td>
 
-                      <td style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                      {/* Data de cadastro */}
+                      <td
+                        style={{
+                          color: "var(--text-muted)",
+                          fontSize: "0.82rem",
+                        }}
+                      >
                         {church.created_at
-                          ? new Date(church.created_at).toLocaleDateString('pt-BR')
-                          : '-'}
+                          ? new Date(church.created_at).toLocaleDateString(
+                              "pt-BR",
+                            )
+                          : "-"}
                       </td>
 
+                      {/* Ação: bloquear / ativar */}
                       <td>
                         <div className="action-btns">
                           <button
                             type="button"
-                            onClick={() => toggleStatus(church.id, church.status)}
-                            disabled={updatingId === church.id}
+                            onClick={() => requestToggleStatus(church)}
+                            disabled={isUpdating}
+                            className={
+                              isActive ? "btn-danger-soft" : "btn-success-soft"
+                            }
                             style={{
-                              padding: '0.45rem 0.75rem',
+                              padding: "0.45rem 0.75rem",
                               borderRadius: 10,
                               border: isActive
-                                ? '1px solid rgba(239,68,68,0.35)'
-                                : '1px solid rgba(16,185,129,0.35)',
+                                ? "1px solid rgba(239,68,68,0.35)"
+                                : "1px solid rgba(16,185,129,0.35)",
                               background: isActive
-                                ? 'rgba(239,68,68,0.14)'
-                                : 'rgba(16,185,129,0.14)',
-                              color: isActive ? '#F87171' : '#34D399',
-                              fontSize: '0.75rem',
+                                ? "rgba(239,68,68,0.14)"
+                                : "rgba(16,185,129,0.14)",
+                              color: isActive ? "#F87171" : "#34D399",
+                              fontSize: "0.75rem",
                               fontWeight: 900,
-                              cursor: updatingId === church.id ? 'not-allowed' : 'pointer',
-                              opacity: updatingId === church.id ? 0.65 : 1,
+                              cursor: isUpdating ? "not-allowed" : "pointer",
+                              opacity: isUpdating ? 0.65 : 1,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "0.3rem",
                             }}
                           >
-                            {updatingId === church.id
-                              ? 'Atualizando...'
-                              : isActive
-                                ? 'Bloquear'
-                                : 'Ativar'}
+                            {isUpdating ? (
+                              <>
+                                <span
+                                  style={{
+                                    display: "inline-block",
+                                    width: 11,
+                                    height: 11,
+                                    border: "2px solid currentColor",
+                                    borderTopColor: "transparent",
+                                    borderRadius: "50%",
+                                    animation: "spin 0.7s linear infinite",
+                                  }}
+                                />
+                                Atualizando...
+                              </>
+                            ) : isActive ? (
+                              "🔒 Bloquear"
+                            ) : (
+                              "✅ Ativar"
+                            )}
                           </button>
                         </div>
                       </td>
                     </tr>
-                  )
+                  );
                 })}
               </tbody>
             </table>
+
+            {/* Rodapé com contagem */}
+            {searchQuery && (
+              <p
+                style={{
+                  textAlign: "center",
+                  color: "var(--text-muted)",
+                  fontSize: "0.78rem",
+                  marginTop: "1rem",
+                  paddingTop: "0.75rem",
+                  borderTop: "1px solid rgba(255,255,255,0.06)",
+                }}
+              >
+                Exibindo {filteredChurches.length} de {churches.length} igrejas
+              </p>
+            )}
           </div>
         )}
       </div>
-    </div>
-  )
-}
 
-function SummaryCard({
-  title,
-  value,
-  color,
-  icon,
-}: {
-  title: string
-  value: number | string
-  color: string
-  icon: string
-}) {
-  return (
-    <div
-      className="stat-card"
-      style={{
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
-      <div
-        style={{
-          position: 'absolute',
-          right: -20,
-          top: -20,
-          width: 100,
-          height: 100,
-          borderRadius: '50%',
-          background: color,
-          opacity: 0.12,
-          filter: 'blur(22px)',
-        }}
-      />
-
-      <div
-        style={{
-          width: 50,
-          height: 50,
-          borderRadius: 16,
-          background: `${color}20`,
-          border: `1px solid ${color}55`,
-          color,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '1.3rem',
-          flexShrink: 0,
-        }}
-      >
-        {icon}
-      </div>
-
-      <div>
-        <h3
-          style={{
-            margin: 0,
-            fontSize: '1.55rem',
-            fontWeight: 900,
-            color: 'var(--text-main)',
-          }}
-        >
-          {value}
-        </h3>
-
-        <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.78rem' }}>
-          {title}
-        </p>
-      </div>
-    </div>
-  )
-}
-
-function Avatar({ name }: { name: string }) {
-  const initials = (name || 'IG')
-    .split(' ')
-    .slice(0, 2)
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-
-  return (
-    <div
-      style={{
-        width: 42,
-        height: 42,
-        borderRadius: '50%',
-        background: 'linear-gradient(135deg,#7C3AED,#2563EB)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: '#fff',
-        fontWeight: 900,
-        fontSize: '0.8rem',
-        boxShadow: '0 8px 18px rgba(0,0,0,0.25)',
-        flexShrink: 0,
-      }}
-    >
-      {initials}
-    </div>
-  )
-}
-
-function StatusBadge({
-  label,
-  color,
-  icon,
-}: {
-  label: string
-  color: string
-  icon: string
-}) {
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 6,
-        padding: '0.25rem 0.65rem',
-        borderRadius: 999,
-        background: `${color}20`,
-        border: `1px solid ${color}55`,
-        color,
-        fontSize: '0.72rem',
-        fontWeight: 900,
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {icon} {label}
-    </span>
-  )
-}
-
-function LoadingState() {
-  return (
-    <div style={{ display: 'grid', gap: 12 }}>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div
-          key={i}
-          className="skeleton"
-          style={{ height: 62, borderRadius: 16 }}
+      {/* ─── ConfirmDialog: Bloquear / Ativar igreja ─── */}
+      {confirmToggle && (
+        <ConfirmDialog
+          title={
+            confirmToggle.newStatus === "blocked"
+              ? "Bloquear esta igreja?"
+              : "Ativar esta igreja?"
+          }
+          message={
+            confirmToggle.newStatus === "blocked"
+              ? `Deseja realmente bloquear "${confirmToggle.church.name}"? O pastor e os obreiros perderão o acesso imediatamente.`
+              : `Deseja realmente ativar "${confirmToggle.church.name}" novamente? O acesso será restaurado.`
+          }
+          onConfirm={confirmToggleStatus}
+          onCancel={() => setConfirmToggle(null)}
+          danger={confirmToggle.newStatus === "blocked"}
+          confirmLabel={
+            confirmToggle.newStatus === "blocked"
+              ? "Sim, bloquear"
+              : "Sim, ativar"
+          }
         />
-      ))}
+      )}
     </div>
-  )
-}
-
-function EmptyState() {
-  return (
-    <div
-      style={{
-        textAlign: 'center',
-        padding: '3rem 1rem',
-        borderRadius: 20,
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px dashed rgba(255,255,255,0.12)',
-      }}
-    >
-      <div style={{ fontSize: '2.8rem', marginBottom: '1rem' }}>⛪</div>
-
-      <h3 style={{ margin: 0, color: 'var(--text-main)' }}>
-        Nenhuma igreja cadastrada
-      </h3>
-
-      <p
-        style={{
-          color: 'var(--text-muted)',
-          fontSize: '0.9rem',
-          margin: '0.5rem auto 0',
-          maxWidth: 460,
-        }}
-      >
-        Quando novas igrejas criarem conta na plataforma, elas aparecerão nesta
-        área para controle de planos, acessos e bloqueios.
-      </p>
-    </div>
-  )
-}
-
-function Alert({ type, message }: { type: 'success' | 'error'; message: string }) {
-  const isSuccess = type === 'success'
-
-  return (
-    <div
-      style={{
-        padding: '0.9rem 1rem',
-        borderRadius: 16,
-        background: isSuccess ? 'rgba(16,185,129,0.14)' : 'rgba(239,68,68,0.14)',
-        border: isSuccess
-          ? '1px solid rgba(16,185,129,0.3)'
-          : '1px solid rgba(239,68,68,0.3)',
-        color: isSuccess ? '#34D399' : '#F87171',
-        fontWeight: 800,
-        fontSize: '0.85rem',
-        marginBottom: '1rem',
-      }}
-    >
-      {isSuccess ? '✅' : '⚠️'} {message}
-    </div>
-  )
+  );
 }

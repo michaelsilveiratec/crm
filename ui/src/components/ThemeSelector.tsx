@@ -1,117 +1,94 @@
-import { useEffect, useState } from 'preact/hooks'
+/**
+ * ThemeSelector — 2 temas: Azul (navy) e Escuro (dark).
+ * Exibido apenas na tela de Configurações como painel informativo.
+ * O seletor interativo principal está na sidebar (app.tsx).
+ */
 
-type ThemeName = 'theme-navy' | 'theme-dark' | 'theme-light'
+type ThemeName = "theme-navy" | "theme-dark";
 
-interface ThemeOption {
-    key: ThemeName
-    title: string
-    description: string
-    preview: string
-    icon: string
-}
+const THEMES: {
+  key: ThemeName;
+  icon: string;
+  title: string;
+  desc: string;
+  preview: string;
+}[] = [
+  {
+    key: "theme-navy",
+    icon: "🌊",
+    title: "Azul",
+    desc: "Tema padrão — paleta aurora premium com tons de azul e rosa",
+    preview: "navy",
+  },
+  {
+    key: "theme-dark",
+    icon: "🌙",
+    title: "Escuro",
+    desc: "Visual preto total — moderno e elegante",
+    preview: "dark",
+  },
+];
 
-const THEME_STORAGE_KEY = 'crm_theme'
-
-const themes: ThemeOption[] = [
-    {
-        key: 'theme-navy',
-        title: 'Azul Marinho Original',
-        description: 'Tema padrão do CRM Bom Samaritano',
-        preview: 'navy',
-        icon: '🌌',
-    },
-    {
-        key: 'theme-dark',
-        title: 'Escuro',
-        description: 'Visual preto, moderno e elegante',
-        preview: 'dark',
-        icon: '🌑',
-    },
-    {
-        key: 'theme-light',
-        title: 'Branco',
-        description: 'Visual claro para ambientes iluminados',
-        preview: 'light',
-        icon: '☀️',
-    },
-]
-
-function isValidTheme(theme: string | null): theme is ThemeName {
-    return theme === 'theme-navy' || theme === 'theme-dark' || theme === 'theme-light'
+function getCurrentTheme(): ThemeName {
+  const saved = localStorage.getItem("crm_theme");
+  return saved === "theme-navy" || saved === "theme-dark"
+    ? saved
+    : "theme-navy";
 }
 
 function applyTheme(theme: ThemeName) {
-    document.body.classList.remove('theme-navy', 'theme-dark', 'theme-light')
-    document.body.classList.add(theme)
-    localStorage.setItem(THEME_STORAGE_KEY, theme)
+  document.body.classList.remove("theme-navy", "theme-dark", "theme-light");
+  document.body.classList.add(theme);
+  localStorage.setItem("crm_theme", theme);
 }
 
 export function ThemeSelector() {
-    const [currentTheme, setCurrentTheme] = useState<ThemeName>('theme-navy')
-    const [saved, setSaved] = useState(false)
-
-    useEffect(() => {
-        const savedTheme = localStorage.getItem(THEME_STORAGE_KEY)
-        const theme: ThemeName = isValidTheme(savedTheme) ? savedTheme : 'theme-navy'
-
-        applyTheme(theme)
-        setCurrentTheme(theme)
-    }, [])
-
-    const handleChangeTheme = (theme: ThemeName) => {
-        applyTheme(theme)
-        setCurrentTheme(theme)
-        setSaved(true)
-
-        setTimeout(() => {
-            setSaved(false)
-        }, 2500)
-    }
-
-    return (
-        <div className="modern-card">
-            <div className="modern-card-header">
-                <div>
-                    <h2 className="modern-card-title">🎨 Aparência do Sistema</h2>
-
-                    <p
-                        style={{
-                            color: 'var(--text-muted)',
-                            fontSize: '0.85rem',
-                            marginTop: 4,
-                        }}
-                    >
-                        Escolha o tema visual do CRM. A preferência ficará salva neste navegador.
-                    </p>
-                </div>
-            </div>
-
-            {saved && (
-                <div className="theme-saved-alert">
-                    ✅ Tema aplicado com sucesso.
-                </div>
-            )}
-
-            <div className="theme-option-grid">
-                {themes.map(theme => (
-                    <button
-                        key={theme.key}
-                        type="button"
-                        className={`theme-option-card ${currentTheme === theme.key ? 'active' : ''}`}
-                        onClick={() => handleChangeTheme(theme.key)}
-                    >
-                        <div className={`theme-preview ${theme.preview}`} />
-
-                        <div className="theme-option-info">
-                            <strong>
-                                {theme.icon} {theme.title}
-                            </strong>
-
-                            <span>{theme.description}</span>
-                        </div>
-                    </button>
-                ))}
-            </div>
+  return (
+    <div className="modern-card">
+      <div className="modern-card-header">
+        <div>
+          <h2 className="modern-card-title">🎨 Aparência do Sistema</h2>
+          <p
+            style={{
+              color: "var(--text-muted)",
+              fontSize: "0.85rem",
+              marginTop: 4,
+            }}
+          >
+            Escolha o tema visual. A preferência é salva neste navegador. O
+            seletor rápido também fica no painel lateral.
+          </p>
         </div>
-    )
+      </div>
+
+      <div
+        className="theme-option-grid"
+        style={{ gridTemplateColumns: "1fr 1fr" }}
+      >
+        {THEMES.map((t) => {
+          const active = getCurrentTheme() === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              className={`theme-option-card ${active ? "active" : ""}`}
+              onClick={() => {
+                applyTheme(t.key);
+                // força re-render via evento storage
+                window.dispatchEvent(new Event("storage"));
+              }}
+            >
+              <div className={`theme-preview ${t.preview}`} />
+              <div className="theme-option-info">
+                <strong>
+                  {t.icon} {t.title}
+                </strong>
+                <span>{t.desc}</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }

@@ -3,16 +3,16 @@ package api
 import (
 	"fmt"
 	"net/http"
-	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/user/crm_eclesia/internal/db"
 )
 
 func CreatePastoralMessageHandler(c *gin.Context) {
-	churchID, _ := c.Get("church_id")
-	userID, _ := c.Get("user_id")
+	churchID, userID, ok := GetChurchAndUser(c)
+	if !ok {
+		return
+	}
 
 	var req struct {
 		Categoria string `json:"categoria" binding:"required"`
@@ -27,12 +27,12 @@ func CreatePastoralMessageHandler(c *gin.Context) {
 	}
 
 	msg := &db.PastoralMessage{
-		ChurchID:  churchID.(int),
+		ChurchID:  churchID,
 		Categoria: req.Categoria,
 		Titulo:    req.Titulo,
 		Mensagem:  req.Mensagem,
 		Status:    req.Status,
-		CriadoPor: userID.(int),
+		CriadoPor: userID,
 	}
 
 	if err := db.CreatePastoralMessage(msg); err != nil {
@@ -44,8 +44,11 @@ func CreatePastoralMessageHandler(c *gin.Context) {
 }
 
 func GetPastoralMessagesHandler(c *gin.Context) {
-	churchID, _ := c.Get("church_id")
-	messages, err := db.GetAllPastoralMessages(churchID.(int))
+	churchID, ok := GetChurchID(c)
+	if !ok {
+		return
+	}
+	messages, err := db.GetAllPastoralMessages(churchID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar as mensagens."})
 		return
@@ -57,11 +60,13 @@ func GetPastoralMessagesHandler(c *gin.Context) {
 }
 
 func UpdatePastoralMessageHandler(c *gin.Context) {
-	churchID, _ := c.Get("church_id")
-	idParam := c.Param("id")
-	id, err := strconv.Atoi(idParam)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID inválido"})
+	churchID, ok := GetChurchID(c)
+	if !ok {
+		return
+	}
+
+	id, ok := ParseIDParam(c)
+	if !ok {
 		return
 	}
 
@@ -79,7 +84,7 @@ func UpdatePastoralMessageHandler(c *gin.Context) {
 
 	msg := &db.PastoralMessage{
 		ID:        id,
-		ChurchID:  churchID.(int),
+		ChurchID:  churchID,
 		Categoria: req.Categoria,
 		Titulo:    req.Titulo,
 		Mensagem:  req.Mensagem,
@@ -95,15 +100,17 @@ func UpdatePastoralMessageHandler(c *gin.Context) {
 }
 
 func DeletePastoralMessageHandler(c *gin.Context) {
-	churchID, _ := c.Get("church_id")
-	idParam := c.Param("id")
-	id, err := strconv.Atoi(idParam)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID inválido"})
+	churchID, ok := GetChurchID(c)
+	if !ok {
 		return
 	}
 
-	if err := db.DeletePastoralMessage(id, churchID.(int)); err != nil {
+	id, ok := ParseIDParam(c)
+	if !ok {
+		return
+	}
+
+	if err := db.DeletePastoralMessage(id, churchID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao excluir a mensagem."})
 		return
 	}
@@ -111,8 +118,11 @@ func DeletePastoralMessageHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Mensagem pastoral excluída com sucesso."})
 }
 func GetMessageHistoryHandler(c *gin.Context) {
-	churchID, _ := c.Get("church_id")
-	history, err := db.GetMessageHistory(churchID.(int))
+	churchID, ok := GetChurchID(c)
+	if !ok {
+		return
+	}
+	history, err := db.GetMessageHistory(churchID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar histórico."})
 		return
@@ -124,16 +134,18 @@ func GetMessageHistoryHandler(c *gin.Context) {
 }
 
 func SendBulkPastoralMessageHandler(c *gin.Context) {
-	churchID, _ := c.Get("church_id")
-	userID, _ := c.Get("user_id")
+	churchID, userID, ok := GetChurchAndUser(c)
+	if !ok {
+		return
+	}
 
 	var req struct {
-		MessageID    int    `json:"message_id" binding:"required"`
-		Target       string `json:"target" binding:"required"` // 'single' ou 'list'
-		TargetID     int    `json:"target_id"`                // member_id se 'single'
-		ListType     string `json:"list_type"`                // 'visitors', 'birthdays', etc.
-		MensagemFinal string `json:"mensagem_final"`           // texto final já com variáveis substituídas
-		Telefone     string `json:"telefone"`                 // telefone do destinatário
+		MessageID     int    `json:"message_id" binding:"required"`
+		Target        string `json:"target" binding:"required"` // 'single' ou 'list'
+		TargetID      int    `json:"target_id"`                 // member_id se 'single'
+		ListType      string `json:"list_type"`                 // 'visitors', 'birthdays', etc.
+		MensagemFinal string `json:"mensagem_final"`            // texto final já com variáveis substituídas
+		Telefone      string `json:"telefone"`                  // telefone do destinatário
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -142,7 +154,7 @@ func SendBulkPastoralMessageHandler(c *gin.Context) {
 	}
 
 	// 1. Buscar a mensagem base
-	messages, _ := db.GetAllPastoralMessages(churchID.(int))
+	messages, _ := db.GetAllPastoralMessages(churchID)
 	var baseMsg *db.PastoralMessage
 	for _, m := range messages {
 		if m.ID == req.MessageID {
@@ -166,7 +178,7 @@ func SendBulkPastoralMessageHandler(c *gin.Context) {
 		// Buscar dados do membro para pegar telefone, se não veio no payload
 		telefone := req.Telefone
 		if telefone == "" {
-			members, _ := db.GetAllMembers(churchID.(int))
+			members, _ := db.GetAllMembers(churchID)
 			for _, mem := range members {
 				if mem.ID == req.TargetID {
 					telefone = mem.WhatsApp
@@ -182,10 +194,7 @@ func SendBulkPastoralMessageHandler(c *gin.Context) {
 		}
 
 		// Limpar telefone
-		telefone = strings.ReplaceAll(telefone, " ", "")
-		telefone = strings.ReplaceAll(telefone, "-", "")
-		telefone = strings.ReplaceAll(telefone, "(", "")
-		telefone = strings.ReplaceAll(telefone, ")", "")
+		telefone = SanitizePhone(telefone)
 
 		send := &db.MessageSend{
 			Telefone:      telefone,
@@ -193,7 +202,7 @@ func SendBulkPastoralMessageHandler(c *gin.Context) {
 			Status:        "Enviado via WhatsApp Web",
 		}
 
-		if err := db.SaveMessageSend(send, churchID.(int), req.MessageID, req.TargetID, userID.(int)); err != nil {
+		if err := db.SaveMessageSend(send, churchID, req.MessageID, req.TargetID, userID); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Erro ao registrar histórico: %v", err)})
 			return
 		}

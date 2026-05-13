@@ -9,16 +9,19 @@ import (
 )
 
 func GetDashboardStatsHandler(c *gin.Context) {
-	churchID, _ := c.Get("church_id")
+	churchID, ok := GetChurchID(c)
+	if !ok {
+		return
+	}
 
 	var stats struct {
-		TotalMembers      int              `json:"total_members"`
-		NewMembersMonth   int              `json:"new_members_month"`
-		BirthdaysMonth    int              `json:"birthdays_month"`
-		ActiveMessages    int              `json:"active_messages"`
-		GrowthData        []MonthlyCount   `json:"growth_data"`
-		RecentActivities  []Activity       `json:"recent_activities"`
-		BirthdaysToday    []BirthdayPerson `json:"birthdays_today"`
+		TotalMembers     int              `json:"total_members"`
+		NewMembersMonth  int              `json:"new_members_month"`
+		BirthdaysMonth   int              `json:"birthdays_month"`
+		ActiveMessages   int              `json:"active_messages"`
+		GrowthData       []MonthlyCount   `json:"growth_data"`
+		RecentActivities []Activity       `json:"recent_activities"`
+		BirthdaysToday   []BirthdayPerson `json:"birthdays_today"`
 	}
 	stats.BirthdaysToday = []BirthdayPerson{}
 
@@ -31,7 +34,7 @@ func GetDashboardStatsHandler(c *gin.Context) {
 	db.DB.QueryRow("SELECT COUNT(*) FROM members WHERE church_id = $1 AND created_at >= $2", churchID, firstOfMonth).Scan(&stats.NewMembersMonth)
 
 	// 3. Aniversariantes do mês (Postgres syntax)
-	db.DB.QueryRow("SELECT COUNT(*) FROM members WHERE church_id = $1 AND EXTRACT(MONTH FROM TO_DATE(birth_date, 'YYYY-MM-DD')) = $2", 
+	db.DB.QueryRow("SELECT COUNT(*) FROM members WHERE church_id = $1 AND EXTRACT(MONTH FROM TO_DATE(birth_date, 'YYYY-MM-DD')) = $2",
 		churchID, int(now.Month())).Scan(&stats.BirthdaysMonth)
 
 	// 4. Mensagens Ativas
@@ -44,20 +47,20 @@ func GetDashboardStatsHandler(c *gin.Context) {
 		var count int
 		start := time.Date(m.Year(), m.Month(), 1, 0, 0, 0, 0, time.Local)
 		end := start.AddDate(0, 1, 0)
-		
-		db.DB.QueryRow("SELECT COUNT(*) FROM members WHERE church_id = $1 AND created_at >= $2 AND created_at < $3", 
+
+		db.DB.QueryRow("SELECT COUNT(*) FROM members WHERE church_id = $1 AND created_at >= $2 AND created_at < $3",
 			churchID, start, end).Scan(&count)
-		
+
 		stats.GrowthData = append(stats.GrowthData, MonthlyCount{Month: monthName, Count: count})
 	}
 
 	// 6. Atividades recentes (Audit Logs)
-	rows, _ := db.DB.Query(`SELECT a.action, u.name, a.created_at 
-		FROM audit_logs a 
-		LEFT JOIN users u ON a.user_id = u.id 
-		WHERE a.church_id = $1 
+	rows, _ := db.DB.Query(`SELECT a.action, u.name, a.created_at
+		FROM audit_logs a
+		LEFT JOIN users u ON a.user_id = u.id
+		WHERE a.church_id = $1
 		ORDER BY a.created_at DESC LIMIT 5`, churchID)
-	
+
 	if rows != nil {
 		defer rows.Close()
 		for rows.Next() {
@@ -68,12 +71,12 @@ func GetDashboardStatsHandler(c *gin.Context) {
 	}
 
 	// 6. Aniversariantes de HOJE
-	bRows, _ := db.DB.Query(`SELECT id, name, whatsapp, birth_date FROM members 
-		WHERE church_id = $1 AND 
-		EXTRACT(DAY FROM TO_DATE(birth_date, 'YYYY-MM-DD')) = $2 AND 
-		EXTRACT(MONTH FROM TO_DATE(birth_date, 'YYYY-MM-DD')) = $3`, 
+	bRows, _ := db.DB.Query(`SELECT id, name, whatsapp, birth_date FROM members
+		WHERE church_id = $1 AND
+		EXTRACT(DAY FROM TO_DATE(birth_date, 'YYYY-MM-DD')) = $2 AND
+		EXTRACT(MONTH FROM TO_DATE(birth_date, 'YYYY-MM-DD')) = $3`,
 		churchID, now.Day(), int(now.Month()))
-	
+
 	if bRows != nil {
 		defer bRows.Close()
 		for bRows.Next() {
@@ -82,6 +85,9 @@ func GetDashboardStatsHandler(c *gin.Context) {
 			stats.BirthdaysToday = append(stats.BirthdaysToday, bp)
 		}
 	}
+
+	stats.GrowthData = EnsureSlice(stats.GrowthData)
+	stats.RecentActivities = EnsureSlice(stats.RecentActivities)
 
 	c.JSON(http.StatusOK, stats)
 }

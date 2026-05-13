@@ -239,8 +239,8 @@ func seedSuperAdminAndFirstChurch() error {
 	var churchID int
 
 	err = DB.QueryRow(
-		`INSERT INTO churches (name, slug, plan, status) 
-		 VALUES ($1, $2, $3, $4) 
+		`INSERT INTO churches (name, slug, plan, status)
+		 VALUES ($1, $2, $3, $4)
 		 RETURNING id`,
 		"Bom Samaritano Matriz",
 		"bom-samaritano-matriz",
@@ -253,7 +253,7 @@ func seedSuperAdminAndFirstChurch() error {
 	}
 
 	_, err = DB.Exec(
-		`INSERT INTO subscriptions (church_id, plan, status) 
+		`INSERT INTO subscriptions (church_id, plan, status)
 		 VALUES ($1, $2, $3)`,
 		churchID,
 		"enterprise",
@@ -270,7 +270,7 @@ func seedSuperAdminAndFirstChurch() error {
 	}
 
 	_, err = DB.Exec(
-		`INSERT INTO users (church_id, name, username, password_hash, role) 
+		`INSERT INTO users (church_id, name, username, password_hash, role)
 		 VALUES ($1, $2, $3, $4, $5)`,
 		churchID,
 		"Super Administrador",
@@ -284,7 +284,7 @@ func seedSuperAdminAndFirstChurch() error {
 	}
 
 	_, err = DB.Exec(
-		`INSERT INTO users (church_id, name, username, password_hash, role) 
+		`INSERT INTO users (church_id, name, username, password_hash, role)
 		 VALUES ($1, $2, $3, $4, $5)`,
 		churchID,
 		"Pastor Bom Samaritano",
@@ -404,26 +404,26 @@ func CreateMember(m *Member) error {
 	}
 
 	query := `INSERT INTO members (
-		church_id, 
-		name, 
-		email, 
-		address, 
-		neighborhood, 
-		city, 
-		phone, 
-		whatsapp, 
-		birth_date, 
-		marital_status, 
-		is_visitor, 
-		spiritual_status, 
-		last_contact_date, 
-		follow_up_notes, 
-		observations, 
+		church_id,
+		name,
+		email,
+		address,
+		neighborhood,
+		city,
+		phone,
+		whatsapp,
+		birth_date,
+		marital_status,
+		is_visitor,
+		spiritual_status,
+		last_contact_date,
+		follow_up_notes,
+		observations,
 		photo_url,
 		created_by
 	)
 	VALUES (
-		$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 
+		$1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
 		$11, $12, $13, $14, $15, $16, $17
 	) RETURNING id`
 
@@ -450,28 +450,28 @@ func CreateMember(m *Member) error {
 }
 
 func GetAllMembers(churchID int) ([]Member, error) {
-	query := `SELECT 
-				id, 
-				church_id, 
-				name, 
-				COALESCE(email, ''), 
-				COALESCE(address, ''), 
-				COALESCE(neighborhood, ''), 
-				COALESCE(city, ''), 
-				COALESCE(phone, ''), 
-				COALESCE(whatsapp, ''), 
-				COALESCE(birth_date::text, ''), 
-				COALESCE(marital_status, ''), 
-				is_visitor, 
-				spiritual_status, 
-				COALESCE(last_contact_date::text, ''), 
-				COALESCE(follow_up_notes, ''), 
-				COALESCE(observations, ''), 
+	query := `SELECT
+				id,
+				church_id,
+				name,
+				COALESCE(email, ''),
+				COALESCE(address, ''),
+				COALESCE(neighborhood, ''),
+				COALESCE(city, ''),
+				COALESCE(phone, ''),
+				COALESCE(whatsapp, ''),
+				COALESCE(birth_date::text, ''),
+				COALESCE(marital_status, ''),
+				is_visitor,
+				spiritual_status,
+				COALESCE(last_contact_date::text, ''),
+				COALESCE(follow_up_notes, ''),
+				COALESCE(observations, ''),
 				COALESCE(photo_url, ''),
-				created_at::text, 
+				created_at::text,
 				COALESCE(created_by, 0)
-			  FROM members 
-			  WHERE church_id = $1 
+			  FROM members
+			  WHERE church_id = $1
 			  ORDER BY created_at DESC`
 
 	rows, err := DB.Query(query, churchID)
@@ -524,17 +524,17 @@ func GetAllMembers(churchID int) ([]Member, error) {
 func GetUserByUsername(username string) (*User, error) {
 	user := &User{}
 
-	query := `SELECT 
-				id, 
-				church_id, 
-				name, 
-				username, 
-				COALESCE(email, ''), 
-				COALESCE(phone, ''), 
-				password_hash, 
-				role, 
-				provisional_access 
-			  FROM users 
+	query := `SELECT
+				id,
+				church_id,
+				name,
+				username,
+				COALESCE(email, ''),
+				COALESCE(phone, ''),
+				password_hash,
+				role,
+				provisional_access
+			  FROM users
 			  WHERE username = $1`
 
 	err := DB.QueryRow(query, username).Scan(
@@ -559,17 +559,17 @@ func GetUserByUsername(username string) (*User, error) {
 func GetUserByID(id int) (*User, error) {
 	user := &User{}
 
-	query := `SELECT 
-				id, 
-				church_id, 
-				name, 
-				username, 
-				COALESCE(email, ''), 
-				COALESCE(phone, ''), 
-				password_hash, 
-				role, 
-				provisional_access 
-			  FROM users 
+	query := `SELECT
+				id,
+				church_id,
+				name,
+				username,
+				COALESCE(email, ''),
+				COALESCE(phone, ''),
+				password_hash,
+				role,
+				provisional_access
+			  FROM users
 			  WHERE id = $1`
 
 	err := DB.QueryRow(query, id).Scan(
@@ -592,17 +592,17 @@ func GetUserByID(id int) (*User, error) {
 }
 
 func GetAllUsers(churchID int) ([]User, error) {
-	query := `SELECT 
-				id, 
-				church_id, 
-				name, 
+	query := `SELECT
+				id,
+				church_id,
+				name,
 				username,
 				COALESCE(email, ''),
 				COALESCE(phone, ''),
-				role, 
-				provisional_access 
-			  FROM users 
-			  WHERE church_id = $1 
+				role,
+				provisional_access
+			  FROM users
+			  WHERE church_id = $1
 			  ORDER BY name ASC`
 
 	rows, err := DB.Query(query, churchID)
@@ -659,18 +659,18 @@ func CreateVisit(v *PastoralVisit) error {
 	}
 
 	query := `INSERT INTO pastoral_visits (
-				church_id, 
-				member_id, 
-				address, 
-				visit_date, 
-				visit_time, 
-				conducted_by, 
-				notes, 
-				status, 
-				carried_holy_communion, 
+				church_id,
+				member_id,
+				address,
+				visit_date,
+				visit_time,
+				conducted_by,
+				notes,
+				status,
+				carried_holy_communion,
 				responsible_id
 			  )
-			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 			  RETURNING id`
 
 	return DB.QueryRow(
@@ -689,23 +689,23 @@ func CreateVisit(v *PastoralVisit) error {
 }
 
 func GetAllVisits(churchID int) ([]PastoralVisit, error) {
-	query := `SELECT 
-				v.id, 
-				v.church_id, 
-				v.member_id, 
-				COALESCE(v.address, ''), 
-				v.visit_date::text, 
-				COALESCE(v.visit_time::text, ''), 
+	query := `SELECT
+				v.id,
+				v.church_id,
+				v.member_id,
+				COALESCE(v.address, ''),
+				v.visit_date::text,
+				COALESCE(v.visit_time::text, ''),
 				COALESCE(v.responsible_id, 0),
-				COALESCE(v.conducted_by, ''), 
-				COALESCE(v.notes, ''), 
-				COALESCE(v.result, ''), 
-				v.status, 
-				v.carried_holy_communion, 
+				COALESCE(v.conducted_by, ''),
+				COALESCE(v.notes, ''),
+				COALESCE(v.result, ''),
+				v.status,
+				v.carried_holy_communion,
 				v.created_at::text
 			  FROM pastoral_visits v
 			  JOIN members m ON v.member_id = m.id
-			  WHERE v.church_id = $1 
+			  WHERE v.church_id = $1
 			  ORDER BY v.visit_date DESC`
 
 	rows, err := DB.Query(query, churchID)
@@ -749,16 +749,58 @@ func GetAllVisits(churchID int) ([]PastoralVisit, error) {
 	return visits, nil
 }
 
+// UpdateVisit atualiza os dados de uma visita pastoral existente.
+// Filtra por church_id para garantir isolamento entre igrejas.
+func UpdateVisit(v *PastoralVisit) error {
+	toNull := func(s string) interface{} {
+		if s == "" {
+			return nil
+		}
+		return s
+	}
+
+	query := `UPDATE pastoral_visits
+			  SET member_id              = $1,
+			      address                = $2,
+			      visit_date             = $3,
+			      visit_time             = $4,
+			      conducted_by           = $5,
+			      notes                  = $6,
+			      result                 = $7,
+			      status                 = $8,
+			      carried_holy_communion = $9,
+			      responsible_id         = $10
+			  WHERE id = $11
+			    AND church_id = $12`
+
+	_, err := DB.Exec(
+		query,
+		v.MemberID,
+		toNull(v.Address),
+		v.VisitDate,
+		toNull(v.VisitTime),
+		toNull(v.ConductedBy),
+		toNull(v.Notes),
+		toNull(v.Result),
+		v.Status,
+		v.CarriedHolyCommunion,
+		v.ResponsibleID,
+		v.ID,
+		v.ChurchID,
+	)
+	return err
+}
+
 func CreateWorkerMessage(m *WorkerMessage) error {
 	query := `INSERT INTO worker_messages (
-				church_id, 
-				sender_id, 
-				recipient_id, 
-				subject, 
-				message, 
+				church_id,
+				sender_id,
+				recipient_id,
+				subject,
+				message,
 				msg_type
 			  )
-			  VALUES ($1, $2, $3, $4, $5, $6) 
+			  VALUES ($1, $2, $3, $4, $5, $6)
 			  RETURNING id`
 
 	return DB.QueryRow(
@@ -773,19 +815,19 @@ func CreateWorkerMessage(m *WorkerMessage) error {
 }
 
 func GetAllWorkerMessages(churchID int) ([]WorkerMessage, error) {
-	query := `SELECT 
-				m.id, 
-				m.church_id, 
-				m.sender_id, 
-				COALESCE(m.recipient_id, 0), 
-				COALESCE(m.subject, ''), 
-				COALESCE(m.message, ''), 
-				COALESCE(m.msg_type, ''), 
-				m.is_read, 
+	query := `SELECT
+				m.id,
+				m.church_id,
+				m.sender_id,
+				COALESCE(m.recipient_id, 0),
+				COALESCE(m.subject, ''),
+				COALESCE(m.message, ''),
+				COALESCE(m.msg_type, ''),
+				m.is_read,
 				m.created_at::text
 			  FROM worker_messages m
 			  JOIN users u ON m.sender_id = u.id
-			  WHERE m.church_id = $1 
+			  WHERE m.church_id = $1
 			  ORDER BY m.created_at DESC`
 
 	rows, err := DB.Query(query, churchID)
@@ -827,14 +869,14 @@ func GetAllWorkerMessages(churchID int) ([]WorkerMessage, error) {
 
 func CreatePastoralMessage(m *PastoralMessage) error {
 	query := `INSERT INTO pastoral_messages (
-				church_id, 
-				categoria, 
-				titulo, 
-				mensagem, 
-				status, 
+				church_id,
+				categoria,
+				titulo,
+				mensagem,
+				status,
 				criado_por
 			  )
-			  VALUES ($1, $2, $3, $4, $5, $6) 
+			  VALUES ($1, $2, $3, $4, $5, $6)
 			  RETURNING id`
 
 	return DB.QueryRow(
@@ -849,18 +891,18 @@ func CreatePastoralMessage(m *PastoralMessage) error {
 }
 
 func GetAllPastoralMessages(churchID int) ([]PastoralMessage, error) {
-	query := `SELECT 
-				id, 
-				church_id, 
-				COALESCE(categoria, ''), 
-				COALESCE(titulo, ''), 
-				COALESCE(mensagem, ''), 
-				COALESCE(status, ''), 
-				COALESCE(criado_por, 0), 
-				COALESCE(criado_em::text, ''), 
-				COALESCE(atualizado_em::text, '') 
-			  FROM pastoral_messages 
-			  WHERE church_id = $1 
+	query := `SELECT
+				id,
+				church_id,
+				COALESCE(categoria, ''),
+				COALESCE(titulo, ''),
+				COALESCE(mensagem, ''),
+				COALESCE(status, ''),
+				COALESCE(criado_por, 0),
+				COALESCE(criado_em::text, ''),
+				COALESCE(atualizado_em::text, '')
+			  FROM pastoral_messages
+			  WHERE church_id = $1
 			  ORDER BY criado_em DESC`
 
 	rows, err := DB.Query(query, churchID)
@@ -901,13 +943,13 @@ func GetAllPastoralMessages(churchID int) ([]PastoralMessage, error) {
 }
 
 func UpdatePastoralMessage(m *PastoralMessage) error {
-	query := `UPDATE pastoral_messages 
-			  SET categoria = $1, 
-			      titulo = $2, 
-			      mensagem = $3, 
-			      status = $4, 
-			      atualizado_em = CURRENT_TIMESTAMP 
-			  WHERE id = $5 
+	query := `UPDATE pastoral_messages
+			  SET categoria = $1,
+			      titulo = $2,
+			      mensagem = $3,
+			      status = $4,
+			      atualizado_em = CURRENT_TIMESTAMP
+			  WHERE id = $5
 			  AND church_id = $6`
 
 	_, err := DB.Exec(
@@ -936,14 +978,14 @@ func DeletePastoralMessage(id int, churchID int) error {
 func SaveMessageSend(s *MessageSend, churchID, messageID, memberID, userID int) error {
 	_, err := DB.Exec(
 		`INSERT INTO message_sends (
-			church_id, 
-			message_id, 
-			member_id, 
-			telefone, 
-			mensagem_final, 
-			status, 
+			church_id,
+			message_id,
+			member_id,
+			telefone,
+			mensagem_final,
+			status,
 			enviado_por
-		) 
+		)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
 		churchID,
 		messageID,
@@ -958,21 +1000,21 @@ func SaveMessageSend(s *MessageSend, churchID, messageID, memberID, userID int) 
 }
 
 func GetMessageHistory(churchID int) ([]MessageSend, error) {
-	query := `SELECT 
-				s.id, 
-				COALESCE(m.titulo, 'Mensagem Excluída'), 
-				COALESCE(mem.name, 'Contato Externo'), 
+	query := `SELECT
+				s.id,
+				COALESCE(m.titulo, 'Mensagem Excluída'),
+				COALESCE(mem.name, 'Contato Externo'),
 				COALESCE(s.telefone, ''),
 				COALESCE(s.mensagem_final, ''),
 				COALESCE(s.status, ''),
-				COALESCE(u.name, 'Sistema'), 
+				COALESCE(u.name, 'Sistema'),
 				s.enviado_em::text
 			  FROM message_sends s
 			  LEFT JOIN pastoral_messages m ON s.message_id = m.id
 			  LEFT JOIN members mem ON s.member_id = mem.id
 			  LEFT JOIN users u ON s.enviado_por = u.id
 			  WHERE s.church_id = $1
-			  ORDER BY s.enviado_em DESC 
+			  ORDER BY s.enviado_em DESC
 			  LIMIT 50`
 
 	rows, err := DB.Query(query, churchID)
@@ -1009,14 +1051,75 @@ func GetMessageHistory(churchID int) ([]MessageSend, error) {
 	return history, nil
 }
 
+// UpdateMember atualiza todos os campos editáveis de um membro,
+// garantindo que ele pertence à mesma igreja (church_id).
+func UpdateMember(m *Member) error {
+	toNull := func(s string) interface{} {
+		if s == "" {
+			return nil
+		}
+		return s
+	}
+
+	query := `UPDATE members
+			  SET name              = $1,
+			      email             = $2,
+			      address           = $3,
+			      neighborhood      = $4,
+			      city              = $5,
+			      phone             = $6,
+			      whatsapp          = $7,
+			      birth_date        = $8,
+			      marital_status    = $9,
+			      is_visitor        = $10,
+			      spiritual_status  = $11,
+			      follow_up_notes   = $12,
+			      observations      = $13,
+			      photo_url         = $14
+			  WHERE id = $15
+			    AND church_id = $16`
+
+	_, err := DB.Exec(
+		query,
+		m.Name,
+		toNull(m.Email),
+		toNull(m.Address),
+		toNull(m.Neighborhood),
+		toNull(m.City),
+		toNull(m.Phone),
+		toNull(m.WhatsApp),
+		toNull(m.BirthDate),
+		toNull(m.MaritalStatus),
+		m.IsVisitor,
+		m.SpiritualStatus,
+		toNull(m.FollowUpNotes),
+		toNull(m.Observations),
+		toNull(m.PhotoURL),
+		m.ID,
+		m.ChurchID,
+	)
+	return err
+}
+
+// DeleteMember remove um membro pelo ID, verificando que pertence
+// à mesma igreja para evitar exclusão entre igrejas diferentes.
+func DeleteMember(memberID, churchID int) error {
+	_, err := DB.Exec(
+		`DELETE FROM members WHERE id = $1 AND church_id = $2`,
+		memberID,
+		churchID,
+	)
+	return err
+}
+
 func SaveActivity(churchID, userID int, action, details string) error {
 	_, err := DB.Exec(
 		`INSERT INTO activity_logs (
-			church_id, 
-			user_id, 
-			action, 
+			church_id,
+			user_id,
+			action,
 			details
-		) 
+		)
 		VALUES ($1, $2, $3, $4)`,
 		churchID,
 		userID,
@@ -1028,16 +1131,16 @@ func SaveActivity(churchID, userID int, action, details string) error {
 }
 
 func GetRecentActivities(churchID int) ([]ActivityItem, error) {
-	query := `SELECT 
-				a.id, 
-				u.name, 
-				a.action, 
-				COALESCE(a.details, ''), 
-				a.created_at::text 
+	query := `SELECT
+				a.id,
+				u.name,
+				a.action,
+				COALESCE(a.details, ''),
+				a.created_at::text
 			  FROM activity_logs a
 			  JOIN users u ON a.user_id = u.id
 			  WHERE a.church_id = $1
-			  ORDER BY a.created_at DESC 
+			  ORDER BY a.created_at DESC
 			  LIMIT 20`
 
 	rows, err := DB.Query(query, churchID)

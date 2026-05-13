@@ -75,6 +75,8 @@ func main() {
 			// Membros e visitantes
 			pastorGroup.GET("/members", api.GetMembersHandler)
 			pastorGroup.POST("/members", api.CreateMemberHandler)
+			pastorGroup.PUT("/members/:id", api.UpdateMemberHandler)
+			pastorGroup.DELETE("/members/:id", api.DeleteMemberHandler)
 			pastorGroup.GET("/members/export", api.ExportMembersCSVHandler)
 
 			// Aniversariantes
@@ -96,6 +98,7 @@ func main() {
 			// Visitas Pastorais
 			pastorGroup.GET("/visits", api.GetVisitsHandler)
 			pastorGroup.POST("/visits", api.CreateVisitHandler)
+			pastorGroup.PUT("/visits/:id", api.UpdateVisitHandler)
 
 			// Mensagens Pastorais
 			pastorGroup.GET("/pastoral-messages", api.GetPastoralMessagesHandler)
@@ -123,9 +126,12 @@ func main() {
 		{
 			workerGroup.GET("/members", api.GetMembersHandler)
 			workerGroup.POST("/members", api.CreateMemberHandler)
+			workerGroup.PUT("/members/:id", api.UpdateMemberHandler)
+			workerGroup.DELETE("/members/:id", api.DeleteMemberHandler)
 
 			workerGroup.GET("/visits", api.GetVisitsHandler)
 			workerGroup.POST("/visits", api.CreateVisitHandler)
+			workerGroup.PUT("/visits/:id", api.UpdateVisitHandler)
 		}
 
 		// Rotas exclusivas para Super Admin

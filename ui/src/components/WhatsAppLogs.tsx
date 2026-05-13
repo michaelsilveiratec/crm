@@ -1,116 +1,359 @@
-import { useState, useEffect } from 'preact/hooks'
+import { useState, useEffect, useMemo } from "preact/hooks";
+import {
+  SummaryCard,
+  StatusBadge,
+  LoadingState,
+  EmptyState,
+  Alert,
+  PageBadge,
+} from "./shared";
+
+// ─── Tipos ───────────────────────────────────────────────────────────────────
 
 interface WhatsAppLog {
-  phone: string
-  message: string
-  status: string
-  error_msg: string
-  sent_at: string
+  phone: string;
+  message: string;
+  status: string;
+  error_msg: string;
+  sent_at: string;
 }
 
-const statusMap: Record<string, { label: string; color: string; icon: string }> = {
-  sent: { label: 'Enviado', color: '#10B981', icon: '✅' },
-  simulated: { label: 'Simulado', color: '#8B5CF6', icon: '🧪' },
-  error: { label: 'Erro', color: '#EF4444', icon: '⚠️' },
-  pending: { label: 'Pendente', color: '#F59E0B', icon: '⏳' },
+type StatusFilter = "all" | "sent" | "error" | "simulated" | "pending";
+type DateFilter = "all" | "today" | "week" | "month";
+
+// ─── Mapa de status ───────────────────────────────────────────────────────────
+
+const statusMap: Record<
+  string,
+  { label: string; color: string; icon: string }
+> = {
+  sent: { label: "Enviado", color: "#10B981", icon: "✅" },
+  simulated: { label: "Simulado", color: "#8B5CF6", icon: "🧪" },
+  error: { label: "Erro", color: "#EF4444", icon: "⚠️" },
+  pending: { label: "Pendente", color: "#F59E0B", icon: "⏳" },
+};
+
+// ─── Utilitário: formatar telefone ────────────────────────────────────────────
+
+function formatPhone(phone: string) {
+  if (!phone) return "-";
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 13)
+    return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9)}`;
+  if (digits.length === 12)
+    return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 8)}-${digits.slice(8)}`;
+  if (digits.length === 11)
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  if (digits.length === 10)
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  return phone;
 }
+
+// ─── Utilitário: filtrar por data ─────────────────────────────────────────────
+
+function isWithinDateRange(sentAt: string, filter: DateFilter): boolean {
+  if (filter === "all" || !sentAt) return true;
+  const date = new Date(sentAt);
+  const now = new Date();
+  const startOf = (d: Date) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  if (filter === "today") {
+    return date >= startOf(now);
+  }
+  if (filter === "week") {
+    const weekAgo = new Date(now);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    return date >= weekAgo;
+  }
+  if (filter === "month") {
+    const monthAgo = new Date(now);
+    monthAgo.setMonth(monthAgo.getMonth() - 1);
+    return date >= monthAgo;
+  }
+  return true;
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
 
 export function WhatsAppLogs() {
-  const [logs, setLogs] = useState<WhatsAppLog[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [logs, setLogs] = useState<WhatsAppLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
+
+  // Filtros
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
 
   useEffect(() => {
-    fetchLogs()
-  }, [])
+    fetchLogs();
+  }, []);
 
-  const fetchLogs = async () => {
-    setLoading(true)
-    setError('')
+  const fetchLogs = async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    setError("");
 
     try {
-      const res = await fetch('/api/pastor/whatsapp/logs')
-      const data = await res.json()
-      setLogs(data || [])
-    } catch (err) {
-      setError('Não foi possível carregar o histórico de envios.')
+      const res = await fetch("/api/pastor/whatsapp/logs");
+      const data = await res.json();
+      setLogs(data || []);
+    } catch {
+      setError("Não foi possível carregar o histórico de envios.");
     } finally {
-      setLoading(false)
+      setLoading(false);
+      setRefreshing(false);
     }
-  }
+  };
 
-  const totalSent = logs.filter(log => log.status === 'sent').length
-  const totalSimulated = logs.filter(log => log.status === 'simulated').length
-  const totalErrors = logs.filter(log => log.status === 'error').length
-  const totalPending = logs.filter(log => log.status === 'pending').length
+  // ─── Contadores (sempre sobre todos os logs) ──────────────────────────────
+
+  const totalSent = logs.filter((l) => l.status === "sent").length;
+  const totalSimulated = logs.filter((l) => l.status === "simulated").length;
+  const totalErrors = logs.filter((l) => l.status === "error").length;
+  const totalPending = logs.filter((l) => l.status === "pending").length;
+
+  // ─── Logs filtrados ───────────────────────────────────────────────────────
+
+  const filteredLogs = useMemo(() => {
+    return logs.filter((log) => {
+      const matchStatus = statusFilter === "all" || log.status === statusFilter;
+      const matchDate = isWithinDateRange(log.sent_at, dateFilter);
+      return matchStatus && matchDate;
+    });
+  }, [logs, statusFilter, dateFilter]);
+
+  // ─── Labels dos filtros ───────────────────────────────────────────────────
+
+  const dateLabels: Record<DateFilter, string> = {
+    all: "Todas as datas",
+    today: "Hoje",
+    week: "Última semana",
+    month: "Último mês",
+  };
+
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div className="main-content">
+      {/* Header */}
       <div className="page-header">
         <div>
-          <span
-            style={{
-              display: 'inline-flex',
-              padding: '0.35rem 0.75rem',
-              borderRadius: 999,
-              background: 'rgba(16,185,129,0.14)',
-              border: '1px solid rgba(16,185,129,0.35)',
-              color: '#34D399',
-              fontSize: '0.75rem',
-              fontWeight: 800,
-              marginBottom: '0.75rem',
-            }}
-          >
-            WhatsApp Pastoral
-          </span>
-
+          <PageBadge color="blue">WhatsApp Pastoral</PageBadge>
           <h1>📜 Histórico de Envios</h1>
-
           <p>
             Acompanhe mensagens automáticas e manuais enviadas para visitantes,
             membros, aniversariantes e grupos da igreja.
           </p>
         </div>
 
-        <button className="btn-help" onClick={fetchLogs}>
-          Atualizar
+        <button
+          className="btn-help"
+          onClick={() => fetchLogs(true)}
+          disabled={refreshing}
+          style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}
+        >
+          {refreshing ? (
+            <>
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 13,
+                  height: 13,
+                  border: "2px solid currentColor",
+                  borderTopColor: "transparent",
+                  borderRadius: "50%",
+                  animation: "spin 0.7s linear infinite",
+                }}
+              />
+              Atualizando...
+            </>
+          ) : (
+            "↻ Atualizar"
+          )}
         </button>
       </div>
 
-      {error && <Alert message={error} />}
+      {/* Alerta de erro */}
+      {error && (
+        <Alert type="error" message={error} onClose={() => setError("")} />
+      )}
 
+      {/* Cards de resumo */}
       <div
         className="stats-grid"
         style={{
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          marginBottom: '1.5rem',
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          marginBottom: "1.5rem",
         }}
       >
-        <SummaryCard title="Total de Envios" value={logs.length} color="#8B5CF6" icon="📨" />
-        <SummaryCard title="Enviadas" value={totalSent} color="#10B981" icon="✅" />
-        <SummaryCard title="Simuladas" value={totalSimulated} color="#8B5CF6" icon="🧪" />
-        <SummaryCard title="Erros" value={totalErrors} color="#EF4444" icon="⚠️" />
+        <SummaryCard
+          title="Total de Envios"
+          value={logs.length}
+          color="#8B5CF6"
+          icon="📨"
+        />
+        <SummaryCard
+          title="Enviadas"
+          value={totalSent}
+          color="#10B981"
+          icon="✅"
+        />
+        <SummaryCard
+          title="Simuladas"
+          value={totalSimulated}
+          color="#8B5CF6"
+          icon="🧪"
+        />
+        <SummaryCard
+          title="Erros"
+          value={totalErrors}
+          color="#EF4444"
+          icon="⚠️"
+        />
         {totalPending > 0 && (
-          <SummaryCard title="Pendentes" value={totalPending} color="#F59E0B" icon="⏳" />
+          <SummaryCard
+            title="Pendentes"
+            value={totalPending}
+            color="#F59E0B"
+            icon="⏳"
+          />
         )}
       </div>
 
+      {/* Card principal */}
       <div className="modern-card">
         <div className="modern-card-header">
           <div>
             <h2 className="modern-card-title">Relatório de Mensagens</h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: 4 }}>
+            <p
+              style={{
+                color: "var(--text-muted)",
+                fontSize: "0.8rem",
+                marginTop: 4,
+              }}
+            >
               Veja o status, telefone, conteúdo e possíveis erros de envio.
             </p>
           </div>
+
+          {/* ─── Filtros ─────────────────────────────────────────────────── */}
+          {!loading && logs.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                gap: "0.6rem",
+                flexWrap: "wrap",
+                alignItems: "center",
+              }}
+            >
+              {/* Filtro por status */}
+              <select
+                value={statusFilter}
+                onChange={(e) =>
+                  setStatusFilter(e.currentTarget.value as StatusFilter)
+                }
+                style={{
+                  padding: "0.4rem 0.75rem",
+                  borderRadius: 10,
+                  background: "var(--card-bg)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  color: "var(--text-main)",
+                  fontSize: "0.8rem",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="all">Todos os status</option>
+                <option value="sent">✅ Enviado</option>
+                <option value="simulated">🧪 Simulado</option>
+                <option value="error">⚠️ Erro</option>
+                <option value="pending">⏳ Pendente</option>
+              </select>
+
+              {/* Filtro por data */}
+              <select
+                value={dateFilter}
+                onChange={(e) =>
+                  setDateFilter(e.currentTarget.value as DateFilter)
+                }
+                style={{
+                  padding: "0.4rem 0.75rem",
+                  borderRadius: 10,
+                  background: "var(--card-bg)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  color: "var(--text-main)",
+                  fontSize: "0.8rem",
+                  cursor: "pointer",
+                }}
+              >
+                {(Object.keys(dateLabels) as DateFilter[]).map((k) => (
+                  <option key={k} value={k}>
+                    {dateLabels[k]}
+                  </option>
+                ))}
+              </select>
+
+              {/* Badge de resultados */}
+              {(statusFilter !== "all" || dateFilter !== "all") && (
+                <span
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "var(--text-muted)",
+                    background: "rgba(255,255,255,0.06)",
+                    padding: "0.3rem 0.6rem",
+                    borderRadius: 8,
+                    border: "1px solid rgba(255,255,255,0.1)",
+                  }}
+                >
+                  {filteredLogs.length} resultado
+                  {filteredLogs.length !== 1 ? "s" : ""}
+                  &nbsp;
+                  <button
+                    onClick={() => {
+                      setStatusFilter("all");
+                      setDateFilter("all");
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "var(--text-muted)",
+                      cursor: "pointer",
+                      padding: 0,
+                      fontSize: "0.7rem",
+                      textDecoration: "underline",
+                    }}
+                  >
+                    limpar
+                  </button>
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
+        {/* Conteúdo */}
         {loading ? (
-          <LoadingState />
+          <LoadingState rows={6} height={58} />
         ) : logs.length === 0 ? (
-          <EmptyState />
+          <EmptyState
+            icon="💬"
+            title="Nenhum envio registrado ainda"
+            description="Assim que mensagens forem enviadas pelo WhatsApp, o histórico aparecerá aqui com status, telefone, horário e detalhes do envio."
+          />
+        ) : filteredLogs.length === 0 ? (
+          <EmptyState
+            icon="🔍"
+            title="Nenhum resultado para este filtro"
+            description="Tente alterar o filtro de status ou de data para ver mais registros."
+            actionLabel="Limpar filtros"
+            onAction={() => {
+              setStatusFilter("all");
+              setDateFilter("all");
+            }}
+          />
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <div style={{ overflowX: "auto" }}>
             <table className="modern-table">
               <thead>
                 <tr>
@@ -123,49 +366,72 @@ export function WhatsAppLogs() {
               </thead>
 
               <tbody>
-                {logs.map((log, i) => {
+                {filteredLogs.map((log, i) => {
                   const status = statusMap[log.status] || {
-                    label: log.status || 'Desconhecido',
-                    color: '#6B7280',
-                    icon: '•',
-                  }
+                    label: log.status || "Desconhecido",
+                    color: "#6B7280",
+                    icon: "•",
+                  };
 
                   return (
                     <tr key={i}>
-                      <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                      {/* Data/hora */}
+                      <td
+                        style={{
+                          fontSize: "0.8rem",
+                          color: "var(--text-muted)",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
                         {log.sent_at
-                          ? new Date(log.sent_at).toLocaleString('pt-BR')
-                          : '-'}
+                          ? new Date(log.sent_at).toLocaleString("pt-BR")
+                          : "-"}
                       </td>
 
+                      {/* Destinatário */}
                       <td>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <strong style={{ color: 'var(--text-main)', fontSize: '0.88rem' }}>
+                        <div
+                          style={{ display: "flex", flexDirection: "column" }}
+                        >
+                          <strong
+                            style={{
+                              color: "var(--text-main)",
+                              fontSize: "0.88rem",
+                              fontFamily: "monospace",
+                              letterSpacing: "0.02em",
+                            }}
+                          >
                             {formatPhone(log.phone)}
                           </strong>
-
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+                          <span
+                            style={{
+                              color: "var(--text-muted)",
+                              fontSize: "0.72rem",
+                            }}
+                          >
                             WhatsApp
                           </span>
                         </div>
                       </td>
 
+                      {/* Mensagem */}
                       <td>
                         <div
                           style={{
                             maxWidth: 360,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            fontSize: '0.85rem',
-                            color: 'var(--text-muted)',
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            fontSize: "0.85rem",
+                            color: "var(--text-muted)",
                           }}
                           title={log.message}
                         >
-                          {log.message || 'Mensagem não informada'}
+                          {log.message || "Mensagem não informada"}
                         </div>
                       </td>
 
+                      {/* Status */}
                       <td>
                         <StatusBadge
                           label={status.label}
@@ -174,25 +440,31 @@ export function WhatsAppLogs() {
                         />
                       </td>
 
+                      {/* Erro */}
                       <td>
                         {log.error_msg ? (
                           <span
                             style={{
-                              color: '#F87171',
-                              fontSize: '0.78rem',
+                              color: "#F87171",
+                              fontSize: "0.78rem",
                               fontWeight: 700,
                             }}
                           >
                             {log.error_msg}
                           </span>
                         ) : (
-                          <span style={{ color: 'var(--text-sub)', fontSize: '0.78rem' }}>
+                          <span
+                            style={{
+                              color: "var(--text-sub)",
+                              fontSize: "0.78rem",
+                            }}
+                          >
                             Sem erro
                           </span>
                         )}
                       </td>
                     </tr>
-                  )
+                  );
                 })}
               </tbody>
             </table>
@@ -200,187 +472,5 @@ export function WhatsAppLogs() {
         )}
       </div>
     </div>
-  )
-}
-
-function SummaryCard({
-  title,
-  value,
-  color,
-  icon,
-}: {
-  title: string
-  value: number
-  color: string
-  icon: string
-}) {
-  return (
-    <div
-      className="stat-card"
-      style={{
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
-      <div
-        style={{
-          position: 'absolute',
-          right: -20,
-          top: -20,
-          width: 100,
-          height: 100,
-          borderRadius: '50%',
-          background: color,
-          opacity: 0.12,
-          filter: 'blur(22px)',
-        }}
-      />
-
-      <div
-        style={{
-          width: 50,
-          height: 50,
-          borderRadius: 16,
-          background: `${color}20`,
-          border: `1px solid ${color}55`,
-          color,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '1.3rem',
-          flexShrink: 0,
-        }}
-      >
-        {icon}
-      </div>
-
-      <div>
-        <h3
-          style={{
-            margin: 0,
-            fontSize: '1.65rem',
-            fontWeight: 900,
-            color: 'var(--text-main)',
-          }}
-        >
-          {value}
-        </h3>
-
-        <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.78rem' }}>
-          {title}
-        </p>
-      </div>
-    </div>
-  )
-}
-
-function StatusBadge({
-  label,
-  color,
-  icon,
-}: {
-  label: string
-  color: string
-  icon: string
-}) {
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 6,
-        padding: '0.25rem 0.65rem',
-        borderRadius: 999,
-        background: `${color}20`,
-        border: `1px solid ${color}55`,
-        color,
-        fontSize: '0.72rem',
-        fontWeight: 900,
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {icon} {label}
-    </span>
-  )
-}
-
-function LoadingState() {
-  return (
-    <div style={{ display: 'grid', gap: 12 }}>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div
-          key={i}
-          className="skeleton"
-          style={{ height: 58, borderRadius: 16 }}
-        />
-      ))}
-    </div>
-  )
-}
-
-function EmptyState() {
-  return (
-    <div
-      style={{
-        textAlign: 'center',
-        padding: '3rem 1rem',
-        borderRadius: 20,
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px dashed rgba(255,255,255,0.12)',
-      }}
-    >
-      <div style={{ fontSize: '2.8rem', marginBottom: '1rem' }}>💬</div>
-
-      <h3 style={{ margin: 0, color: 'var(--text-main)' }}>
-        Nenhum envio registrado ainda
-      </h3>
-
-      <p
-        style={{
-          color: 'var(--text-muted)',
-          fontSize: '0.9rem',
-          margin: '0.5rem auto 0',
-          maxWidth: 460,
-        }}
-      >
-        Assim que mensagens forem enviadas pelo WhatsApp, o histórico aparecerá
-        aqui com status, telefone, horário e detalhes do envio.
-      </p>
-    </div>
-  )
-}
-
-function Alert({ message }: { message: string }) {
-  return (
-    <div
-      style={{
-        padding: '0.9rem 1rem',
-        borderRadius: 16,
-        background: 'rgba(239,68,68,0.14)',
-        border: '1px solid rgba(239,68,68,0.3)',
-        color: '#F87171',
-        fontWeight: 800,
-        fontSize: '0.85rem',
-        marginBottom: '1rem',
-      }}
-    >
-      ⚠️ {message}
-    </div>
-  )
-}
-
-function formatPhone(phone: string) {
-  if (!phone) return '-'
-
-  const digits = phone.replace(/\D/g, '')
-
-  if (digits.length === 13) {
-    return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9)}`
-  }
-
-  if (digits.length === 11) {
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
-  }
-
-  return phone
+  );
 }

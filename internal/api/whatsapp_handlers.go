@@ -9,7 +9,10 @@ import (
 )
 
 func SendRealWhatsAppHandler(c *gin.Context) {
-	churchID, _ := c.Get("church_id")
+	churchID, ok := GetChurchID(c)
+	if !ok {
+		return
+	}
 
 	var req struct {
 		MemberID int    `json:"member_id"`
@@ -23,7 +26,7 @@ func SendRealWhatsAppHandler(c *gin.Context) {
 	}
 
 	ws := service.NewWhatsAppService()
-	err := ws.SendMessage(churchID.(int), req.MemberID, req.Phone, req.Message)
+	err := ws.SendMessage(churchID, req.MemberID, req.Phone, req.Message)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar envio"})
 		return
@@ -33,7 +36,10 @@ func SendRealWhatsAppHandler(c *gin.Context) {
 }
 
 func GetWhatsAppLogsHandler(c *gin.Context) {
-	churchID, _ := c.Get("church_id")
+	churchID, ok := GetChurchID(c)
+	if !ok {
+		return
+	}
 
 	rows, err := db.DB.Query(`SELECT phone, message, status, error_msg, sent_at FROM whatsapp_logs WHERE church_id = $1 ORDER BY sent_at DESC LIMIT 50`, churchID)
 	if err != nil {
@@ -57,5 +63,5 @@ func GetWhatsAppLogsHandler(c *gin.Context) {
 		logs = append(logs, l)
 	}
 
-	c.JSON(http.StatusOK, logs)
+	c.JSON(http.StatusOK, EnsureSlice(logs))
 }

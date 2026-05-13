@@ -991,7 +991,7 @@ export function App({ onLogout }: { onLogout: () => void }) {
               <h3 style={{ margin: 0, fontSize: "0.9rem", color: "#F3F4F6" }}>
                 {isPastor
                   ? `Pr. ${user.user_name || "Michael Ramos"}`
-                  : user.user_name || ""}
+                  : user.user_name || "usuário"}
               </h3>
 
               <p style={{ margin: 0, fontSize: "0.75rem", color: "#9CA3AF" }}>
